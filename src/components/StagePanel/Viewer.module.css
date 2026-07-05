@@ -1,0 +1,49 @@
+.viewer {
+  position: relative;
+  min-width: 0;
+  background:
+    linear-gradient(45deg, #17171b 25%, transparent 25%),
+    linear-gradient(-45deg, #17171b 25%, transparent 25%),
+    linear-gradient(45deg, transparent 75%, #17171b 75%),
+    linear-gradient(-45deg, transparent 75%, #17171b 75%), #111115;
+  background-size: 16px 16px;
+  background-position:
+    0 0,
+    0 8px,
+    8px -8px,
+    -8px 0;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  overflow: auto;
+  min-height: 430px;
+  display: grid;
+  place-items: center;
+}
+.label {
+  position: sticky;
+  top: 8px;
+  left: 8px;
+  z-index: 3;
+  justify-self: start;
+  align-self: start;
+  margin: 8px;
+  padding: 4px 7px;
+  color: var(--muted);
+  background: rgba(8, 8, 10, 0.8);
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  font-size: 10px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  backdrop-filter: blur(8px);
+}
+.frameWrap {
+  grid-area: 1 / 1;
+  padding: 36px 18px 18px;
+}
+
+@media (max-width: 780px) {
+  .viewer {
+    min-height: 340px;
+  }
+}

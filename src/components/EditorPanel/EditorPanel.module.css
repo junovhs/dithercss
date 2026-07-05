@@ -1,0 +1,48 @@
+.code {
+  display: block;
+  width: 100%;
+  height: calc(100vh - 126px);
+  min-height: 620px;
+  border: 0;
+  border-radius: 0;
+  padding: 14px;
+  outline: none;
+  font: 12px/1.55 ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas,
+    "Liberation Mono", monospace;
+  tab-size: 2;
+  background: #0a0a0d;
+  white-space: pre;
+}
+
+.mediaNote {
+  display: flex;
+  align-items: flex-start;
+  gap: 9px;
+  padding: 10px 12px;
+  border-bottom: 1px solid var(--line);
+  background: rgba(201, 255, 87, 0.05);
+  color: var(--muted);
+  font-size: 11px;
+  line-height: 1.45;
+}
+.mediaNote svg {
+  width: 15px;
+  height: 15px;
+  flex: none;
+  margin-top: 1px;
+  color: var(--accent);
+}
+.mediaNote strong {
+  color: var(--text);
+}
+.mediaNote em {
+  color: var(--accent);
+  font-style: normal;
+}
+
+@media (max-width: 780px) {
+  .code {
+    height: 52vh;
+    min-height: 420px;
+  }
+}

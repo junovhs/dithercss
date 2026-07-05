@@ -1,0 +1,31 @@
+.app {
+  width: min(1800px, 100%);
+  margin: 0 auto;
+  padding: 16px;
+}
+.workspace {
+  display: grid;
+  grid-template-columns:
+    minmax(300px, 0.82fr)
+    minmax(420px, 1.45fr)
+    minmax(270px, 0.72fr);
+  gap: 12px;
+  align-items: start;
+}
+.middleColumn {
+  min-width: 0;
+}
+
+@media (max-width: 1160px) {
+  .workspace {
+    grid-template-columns: minmax(300px, 0.8fr) minmax(460px, 1.3fr);
+  }
+}
+@media (max-width: 780px) {
+  .app {
+    padding: 8px;
+  }
+  .workspace {
+    grid-template-columns: 1fr;
+  }
+}
