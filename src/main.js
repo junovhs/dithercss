@@ -8,7 +8,8 @@ import {
   buildControls, buildPresetCards, syncSimpleControl, setSettings,
   updatePresetSelection, saveCurrentPreset, autoTune, handleFile, updateTransport
 } from './ui.js';
-import { exportPng, exportText, exportHtml, toggleRecording } from './export.js';
+import { exportPng, exportText, exportHtml } from './export.js';
+import { exportVideo, isExportSupported } from './encoder.js';
 
 function loop(now) {
   const minDelay = 1000 / state.settings.renderFps;
@@ -40,18 +41,38 @@ $('timeline').addEventListener('input', (event) => {
   if (!Number.isFinite(video.duration)) return;
   video.currentTime = (Number(event.target.value) / 1000) * video.duration;
 });
-video.addEventListener('seeked', () => { if (state.settings.resetOnSeek) resetTemporalState(); processFrame(); });
+// The export loop drives its own seeking/rendering, so skip the live handler then.
+video.addEventListener('seeked', () => { if (state.exporting) return; if (state.settings.resetOnSeek) resetTemporalState(); processFrame(); });
 video.addEventListener('loadedmetadata', () => { updateTransport(); processFrame(); });
-video.addEventListener('ended', () => { if (state.recorder?.state === 'recording') state.recorder.stop(); });
 $('showOriginal').addEventListener('change', (event) => $('visualGrid').classList.toggle('original-hidden', !event.target.checked));
 
 $('pngButton').addEventListener('click', exportPng);
 $('txtButton').addEventListener('click', exportText);
 $('htmlButton').addEventListener('click', exportHtml);
-$('recordButton').addEventListener('click', toggleRecording);
+$('mp4Button').addEventListener('click', () => runExport('mp4', 'MP4'));
+$('webmButton').addEventListener('click', () => runExport('webm', 'WebM'));
 $('resetButton').addEventListener('click', () => { state.activePreset = 'crisp'; setSettings(presets.crisp.values); updatePresetSelection(); toast('Controls reset.'); });
 $('autoTuneButton').addEventListener('click', autoTune);
 $('savePresetButton').addEventListener('click', saveCurrentPreset);
+
+// Clip export: while running, the clicked button becomes Cancel and the other is
+// disabled; progress shows in the status line.
+function runExport(format, label) {
+  if (state.exporting) { state.exportCancel = true; return; }
+  const btn = $(format === 'mp4' ? 'mp4Button' : 'webmButton');
+  const other = $(format === 'mp4' ? 'webmButton' : 'mp4Button');
+  const original = btn.textContent;
+  btn.textContent = 'Cancel';
+  other.disabled = true;
+  exportVideo(format, (pct) => { $('recordStatus').textContent = `${label} ${Math.round(pct * 100)}%`; })
+    .finally(() => { btn.textContent = original; other.disabled = false; $('recordStatus').textContent = ''; });
+}
+
+if (!isExportSupported()) {
+  const note = 'Video export requires a browser with WebCodecs (Chrome, Edge, Firefox, or Safari 17+).';
+  ['mp4Button', 'webmButton'].forEach((id) => { $(id).disabled = true; $(id).title = note; });
+  $('recordStatus').textContent = 'Video export needs WebCodecs';
+}
 
 window.addEventListener('keydown', (event) => {
   if (event.target.matches('input,select')) return;

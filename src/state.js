@@ -69,9 +69,8 @@ export const state = {
   loaded: false,
   currentAscii: '',
   currentColors: [],
-  recorder: null,
-  recordedChunks: [],
-  recordingStartedAt: 0,
+  exporting: false,
+  exportCancel: false,
   activePreset: 'crisp',
   objectUrl: null
 };
