@@ -1,13 +1,975 @@
 <!doctype html>
 <html lang="en">
-  <head>
-    <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width,initial-scale=1" />
-    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
-    <title>Bayer Studio — CSS Animation Dither Lab</title>
-  </head>
-  <body>
-    <div id="root"></div>
-    <script type="module" src="/src/main.tsx"></script>
-  </body>
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="color-scheme" content="dark" />
+  <title>ASCII Video Studio</title>
+  <style>
+:root {
+  --bg: #07090d;
+  --panel: #0d1118;
+  --panel-2: #111722;
+  --line: rgba(255,255,255,.09);
+  --line-strong: rgba(255,255,255,.16);
+  --text: #f5f7fb;
+  --muted: #929caf;
+  --accent: #8cf6d1;
+  --accent-2: #5eddb2;
+  --danger: #ff6b7a;
+  --radius: 18px;
+  --shadow: 0 22px 70px rgba(0,0,0,.35);
+}
+
+* { box-sizing: border-box; }
+html, body { min-height: 100%; }
+body {
+  margin: 0;
+  color: var(--text);
+  background:
+    radial-gradient(circle at 15% -10%, rgba(92, 222, 180, .12), transparent 32rem),
+    radial-gradient(circle at 90% 10%, rgba(95, 117, 255, .09), transparent 30rem),
+    var(--bg);
+  font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+}
+button, input, select { font: inherit; }
+button { color: inherit; }
+
+.app-shell { max-width: 1680px; margin: 0 auto; padding: 22px; }
+.topbar {
+  display: flex; align-items: center; justify-content: space-between; gap: 18px;
+  padding: 4px 2px 18px;
+}
+.eyebrow, .section-kicker, .pane-label {
+  font-size: 10px; font-weight: 800; letter-spacing: .18em; color: var(--accent);
+}
+h1 { margin: 3px 0 0; font-size: clamp(24px, 3vw, 38px); letter-spacing: -.04em; }
+h2 { margin: 2px 0 0; font-size: 16px; letter-spacing: -.01em; }
+.top-actions { display: flex; align-items: center; gap: 10px; }
+.privacy-pill {
+  padding: 8px 11px; border: 1px solid var(--line); border-radius: 999px;
+  color: var(--muted); font-size: 12px; background: rgba(255,255,255,.025);
+}
+
+.workspace {
+  display: grid; grid-template-columns: minmax(0, 1fr) 390px; gap: 18px; align-items: start;
+}
+.stage-card, .control-panel {
+  border: 1px solid var(--line); background: rgba(13,17,24,.88); border-radius: var(--radius);
+  box-shadow: var(--shadow); backdrop-filter: blur(16px);
+}
+.stage-card { min-height: calc(100vh - 118px); overflow: hidden; }
+.control-panel { max-height: calc(100vh - 118px); overflow: auto; scrollbar-width: thin; }
+
+.drop-zone {
+  min-height: calc(100vh - 120px); display: grid; place-content: center; justify-items: center;
+  text-align: center; padding: 42px; border: 1px dashed transparent; transition: .2s ease;
+}
+.drop-zone.dragging { background: rgba(140,246,209,.06); border-color: var(--accent); }
+.drop-icon {
+  display: grid; place-items: center; width: 64px; height: 64px; margin-bottom: 16px;
+  border-radius: 20px; color: #03140e; background: var(--accent); box-shadow: 0 12px 36px rgba(140,246,209,.2);
+}
+.drop-zone h2 { font-size: 25px; }
+.drop-zone p { max-width: 440px; margin: 9px 0 22px; color: var(--muted); }
+
+.button, .icon-button, .text-button {
+  border: 0; cursor: pointer; transition: transform .15s ease, background .15s ease, border-color .15s ease, opacity .15s ease;
+}
+.button:hover, .icon-button:hover { transform: translateY(-1px); }
+.button {
+  padding: 9px 12px; border: 1px solid var(--line-strong); border-radius: 10px;
+  background: rgba(255,255,255,.05); font-weight: 700; font-size: 12px;
+}
+.button-primary { background: var(--accent); color: #04140f; border-color: transparent; }
+.button-record.recording { background: var(--danger); border-color: transparent; color: white; }
+.icon-button {
+  width: 34px; height: 34px; border-radius: 10px; background: rgba(255,255,255,.06); border: 1px solid var(--line);
+}
+.text-button { padding: 4px; background: none; color: var(--accent); font-size: 12px; font-weight: 700; }
+
+.player-area { min-height: calc(100vh - 120px); display: flex; flex-direction: column; }
+.visual-grid { flex: 1; display: grid; grid-template-columns: 1fr 1fr; min-height: 0; }
+.visual-grid.original-hidden { grid-template-columns: 1fr; }
+.visual-grid.original-hidden .original-pane { display: none; }
+.pane { min-width: 0; position: relative; display: grid; place-items: center; padding: 28px 16px 12px; overflow: hidden; }
+.pane + .pane { border-left: 1px solid var(--line); }
+.pane-label { position: absolute; top: 12px; left: 16px; color: var(--muted); }
+.ascii-pane {
+  background:
+    linear-gradient(rgba(255,255,255,.018) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255,255,255,.018) 1px, transparent 1px),
+    #05070a;
+  background-size: 24px 24px;
+}
+#sourceVideo, #asciiCanvas { display: block; max-width: 100%; max-height: calc(100vh - 250px); object-fit: contain; border-radius: 8px; }
+#sourceVideo { width: 100%; height: 100%; background: black; }
+#asciiCanvas { image-rendering: auto; box-shadow: 0 14px 48px rgba(0,0,0,.35); }
+
+.transport, .export-strip {
+  display: flex; align-items: center; gap: 10px; padding: 12px 14px; border-top: 1px solid var(--line); background: rgba(7,9,13,.84);
+}
+.export-strip { flex-wrap: wrap; padding-top: 10px; padding-bottom: 10px; }
+.timeline { flex: 1; min-width: 90px; accent-color: var(--accent); }
+.timecode { min-width: 38px; color: var(--muted); font: 11px ui-monospace, SFMono-Regular, Menlo, monospace; }
+.check-label { display: flex; align-items: center; gap: 6px; font-size: 12px; color: var(--muted); white-space: nowrap; }
+.record-status { color: var(--muted); font-size: 11px; }
+
+.panel-section { padding: 18px; border-bottom: 1px solid var(--line); }
+.panel-section:last-child { border-bottom: 0; }
+.section-heading { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 14px; }
+.section-heading.compact { margin-bottom: 9px; }
+.preset-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px; }
+.preset-card {
+  min-height: 70px; padding: 10px; text-align: left; border-radius: 12px; cursor: pointer;
+  border: 1px solid var(--line); color: var(--text); background: linear-gradient(145deg, rgba(255,255,255,.055), rgba(255,255,255,.02));
+}
+.preset-card:hover, .preset-card.active { border-color: var(--accent); background: rgba(140,246,209,.07); }
+.preset-name { display: block; font-weight: 800; font-size: 12px; }
+.preset-note { display: block; margin-top: 5px; color: var(--muted); font-size: 10px; line-height: 1.3; }
+.custom-preset-row { display: grid; grid-template-columns: 1fr auto; gap: 8px; margin-top: 9px; }
+.custom-preset-row input, .text-row input, select {
+  width: 100%; min-width: 0; color: var(--text); background: #0a0e15; border: 1px solid var(--line-strong); border-radius: 9px; padding: 8px 9px; outline: none;
+}
+.custom-preset-row input:focus, .text-row input:focus, select:focus { border-color: var(--accent); }
+
+.control-row { display: grid; grid-template-columns: 112px 1fr 46px; align-items: center; gap: 10px; min-height: 38px; color: var(--muted); font-size: 12px; }
+.control-row output { color: var(--text); text-align: right; font: 11px ui-monospace, SFMono-Regular, Menlo, monospace; }
+.control-row input[type="range"] { width: 100%; accent-color: var(--accent); }
+.select-row { grid-template-columns: 112px 1fr; }
+.text-row { grid-template-columns: 112px 1fr; }
+.color-row { grid-template-columns: 112px 1fr; }
+.color-row input { width: 100%; height: 30px; padding: 2px; border: 1px solid var(--line-strong); border-radius: 8px; background: none; }
+.toggle-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; min-height: 34px; color: var(--muted); font-size: 12px; }
+.toggle-row input { accent-color: var(--accent); }
+
+.toast {
+  position: fixed; z-index: 10; left: 50%; bottom: 24px; transform: translate(-50%, 18px);
+  padding: 10px 13px; border-radius: 10px; background: #edfdf7; color: #081611; font-weight: 750; font-size: 12px;
+  opacity: 0; pointer-events: none; transition: .2s ease;
+}
+.toast.show { opacity: 1; transform: translate(-50%, 0); }
+.is-hidden { display: none !important; }
+
+@media (max-width: 1050px) {
+  .workspace { grid-template-columns: 1fr; }
+  .control-panel { max-height: none; }
+  .stage-card, .player-area { min-height: 70vh; }
+  .drop-zone { min-height: 70vh; }
+}
+@media (max-width: 700px) {
+  .app-shell { padding: 12px; }
+  .topbar { align-items: flex-start; }
+  .privacy-pill { display: none; }
+  .visual-grid { grid-template-columns: 1fr; }
+  .original-pane { min-height: 260px; border-bottom: 1px solid var(--line); }
+  .pane + .pane { border-left: 0; }
+  .transport { flex-wrap: wrap; }
+  .timeline { order: 10; flex-basis: 100%; }
+}
+
+</style>
+</head>
+<body>
+  <div class="app-shell">
+    <header class="topbar">
+      <div>
+        <div class="eyebrow">LOCAL VIDEO TOOL</div>
+        <h1>ASCII Video Studio</h1>
+      </div>
+      <div class="top-actions">
+        <span class="privacy-pill">Runs in your browser</span>
+        <button id="loadButton" class="button button-primary">Load video</button>
+        <input id="fileInput" type="file" accept="video/*" hidden />
+      </div>
+    </header>
+
+    <main class="workspace">
+      <section class="stage-card">
+        <div id="dropZone" class="drop-zone">
+          <div class="drop-icon">▶</div>
+          <h2>Drop a video clip here</h2>
+          <p>MP4, WebM, MOV, or any format your browser can decode.</p>
+          <button id="dropLoadButton" class="button button-primary">Choose video</button>
+        </div>
+
+        <div id="playerArea" class="player-area is-hidden">
+          <div id="visualGrid" class="visual-grid original-hidden">
+            <div id="originalPane" class="pane original-pane">
+              <div class="pane-label">ORIGINAL</div>
+              <video id="sourceVideo" playsinline preload="metadata"></video>
+            </div>
+            <div class="pane ascii-pane">
+              <div class="pane-label">ASCII OUTPUT</div>
+              <canvas id="asciiCanvas"></canvas>
+            </div>
+          </div>
+
+          <div class="transport">
+            <button id="playPause" class="icon-button" aria-label="Play or pause">▶</button>
+            <span id="currentTime" class="timecode">00:00</span>
+            <input id="timeline" class="timeline" type="range" min="0" max="1000" value="0" />
+            <span id="duration" class="timecode">00:00</span>
+            <button id="restartButton" class="icon-button" aria-label="Restart">↺</button>
+            <label class="check-label"><input id="showOriginal" type="checkbox" /> Compare</label>
+          </div>
+
+          <div class="export-strip">
+            <button id="pngButton" class="button">PNG frame</button>
+            <button id="txtButton" class="button">TXT frame</button>
+            <button id="htmlButton" class="button">HTML frame</button>
+            <button id="recordButton" class="button button-record">Record WebM</button>
+            <span id="recordStatus" class="record-status"></span>
+          </div>
+        </div>
+      </section>
+
+      <aside class="control-panel">
+        <section class="panel-section preset-section">
+          <div class="section-heading">
+            <div>
+              <div class="section-kicker">LOOK</div>
+              <h2>Presets</h2>
+            </div>
+            <button id="autoTuneButton" class="text-button">Auto tune</button>
+          </div>
+          <div id="presetGrid" class="preset-grid"></div>
+          <div class="custom-preset-row">
+            <input id="customPresetName" type="text" maxlength="30" placeholder="Custom preset name" />
+            <button id="savePresetButton" class="button">Save</button>
+          </div>
+        </section>
+
+        <section class="panel-section">
+          <div class="section-heading compact">
+            <div>
+              <div class="section-kicker">STRUCTURE</div>
+              <h2>ASCII mapping</h2>
+            </div>
+            <button id="resetButton" class="text-button">Reset</button>
+          </div>
+
+          <label class="control-row select-row">
+            <span>Glyph set</span>
+            <select id="glyphSet">
+              <option value="classic">Classic ASCII</option>
+              <option value="dense">Dense ASCII</option>
+              <option value="blocks">Unicode blocks</option>
+              <option value="braille">Braille texture</option>
+              <option value="minimal">Minimal</option>
+              <option value="custom">Custom</option>
+            </select>
+          </label>
+          <label id="customGlyphRow" class="control-row text-row is-hidden">
+            <span>Characters</span>
+            <input id="customGlyphs" type="text" value=" .:-=+*#%@" />
+          </label>
+          <label class="control-row select-row">
+            <span>Font</span>
+            <select id="fontFamily">
+              <option value="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace">System Mono</option>
+              <option value="'Courier New', Courier, monospace">Courier New</option>
+              <option value="'Lucida Console', Monaco, monospace">Lucida Console</option>
+              <option value="monospace">Browser Mono</option>
+            </select>
+          </label>
+          <div id="mappingControls"></div>
+          <label class="toggle-row"><span>Directional edge glyphs</span><input id="directionalEdges" type="checkbox" checked /></label>
+          <label class="toggle-row"><span>Invert density</span><input id="invert" type="checkbox" /></label>
+        </section>
+
+        <section class="panel-section">
+          <div class="section-heading compact">
+            <div>
+              <div class="section-kicker">IMAGE</div>
+              <h2>Tone and color</h2>
+            </div>
+          </div>
+          <label class="control-row select-row">
+            <span>Color mode</span>
+            <select id="colorMode">
+              <option value="source">Source color</option>
+              <option value="mono">Monochrome</option>
+              <option value="matrix">Matrix green</option>
+              <option value="amber">Amber CRT</option>
+              <option value="cyan">Cyan terminal</option>
+              <option value="ansi">ANSI 16</option>
+            </select>
+          </label>
+          <div id="imageControls"></div>
+          <label class="control-row color-row"><span>Background</span><input id="backgroundColor" type="color" value="#05070a" /></label>
+          <label class="control-row color-row"><span>Mono color</span><input id="monoColor" type="color" value="#f5f7fa" /></label>
+        </section>
+
+        <section class="panel-section">
+          <div class="section-heading compact">
+            <div>
+              <div class="section-kicker">TIME</div>
+              <h2>Motion</h2>
+            </div>
+          </div>
+          <div id="motionControls"></div>
+          <label class="toggle-row"><span>Reset smoothing after seek</span><input id="resetOnSeek" type="checkbox" checked /></label>
+        </section>
+      </aside>
+    </main>
+  </div>
+
+  <canvas id="sourceCanvas" hidden></canvas>
+  <canvas id="glyphCanvas" hidden></canvas>
+  <div id="toast" class="toast" role="status"></div>
+  <script>
+(() => {
+  'use strict';
+
+  const $ = (id) => document.getElementById(id);
+  const video = $('sourceVideo');
+  const canvas = $('asciiCanvas');
+  const ctx = canvas.getContext('2d', { alpha: false });
+  const sourceCanvas = $('sourceCanvas');
+  const sourceCtx = sourceCanvas.getContext('2d', { willReadFrequently: true });
+  const glyphCanvas = $('glyphCanvas');
+  const glyphCtx = glyphCanvas.getContext('2d', { willReadFrequently: true });
+
+  const glyphSets = {
+    classic: ' .,:;irsXA253hMHGS#9B&@',
+    dense: '  .`^\",:;Il!i~+_-?][}{1)(|\\/tfjrxnuvczXYUJCLQ0OZmwqpdbkhao*#MW&8%B@$',
+    blocks: ' ░▒▓█',
+    braille: ' ⠁⠂⠄⡀⢀⠈⠐⠠⠃⠅⠉⠘⠰⠿⣿',
+    minimal: ' .-:=+*#%@'
+  };
+
+  const ansiPalette = [
+    [0,0,0],[128,0,0],[0,128,0],[128,128,0],[0,0,128],[128,0,128],[0,128,128],[192,192,192],
+    [128,128,128],[255,0,0],[0,255,0],[255,255,0],[0,0,255],[255,0,255],[0,255,255],[255,255,255]
+  ];
+
+  const controlSpecs = {
+    mapping: [
+      ['columns', 'Columns', 40, 240, 1, 112, ''],
+      ['fontSize', 'Render size', 7, 22, 1, 11, 'px'],
+      ['charAspect', 'Cell aspect', 0.38, 0.78, 0.01, 0.58, ''],
+      ['contrast', 'Contrast', 0.3, 2.5, 0.01, 1.15, '×'],
+      ['gamma', 'Gamma', 0.35, 2.6, 0.01, 0.95, ''],
+      ['brightness', 'Brightness', -0.5, 0.5, 0.01, 0, ''],
+      ['edgeStrength', 'Edge boost', 0, 2.5, 0.01, 0.65, ''],
+      ['edgeThreshold', 'Edge threshold', 0.05, 1.2, 0.01, 0.28, ''],
+      ['dither', 'Dither', 0, 1.5, 0.01, 0.22, '']
+    ],
+    image: [
+      ['saturation', 'Saturation', 0, 2.5, 0.01, 1.15, '×'],
+      ['colorBoost', 'Color brightness', 0.35, 2.2, 0.01, 1.08, '×'],
+      ['paletteSteps', 'Palette steps', 2, 32, 1, 16, ''],
+      ['scanlines', 'Scanlines', 0, 0.8, 0.01, 0.08, ''],
+      ['glow', 'Glow', 0, 18, 1, 2, 'px']
+    ],
+    motion: [
+      ['temporal', 'Temporal smoothing', 0, 0.92, 0.01, 0.52, ''],
+      ['glyphHold', 'Glyph stability', 0, 0.85, 0.01, 0.22, ''],
+      ['renderFps', 'Preview FPS', 6, 30, 1, 20, ' fps']
+    ]
+  };
+
+  const defaults = {};
+  Object.values(controlSpecs).flat().forEach(([id, , , , , def]) => { defaults[id] = def; });
+  Object.assign(defaults, {
+    glyphSet: 'classic', customGlyphs: ' .:-=+*#%@', fontFamily: 'ui-monospace, SFMono-Regular, Menlo, Consolas, monospace',
+    directionalEdges: true, invert: false, colorMode: 'source', backgroundColor: '#05070a', monoColor: '#f5f7fa', resetOnSeek: true
+  });
+
+  const presets = {
+    crisp: { name: 'Crisp Detail', note: 'Clean edges, balanced color', values: { ...defaults, columns: 130, edgeStrength: 1.05, edgeThreshold: .24, dither: .12, temporal: .58, glyphHold: .28 } },
+    terminal: { name: 'Classic Terminal', note: 'High-contrast monochrome', values: { ...defaults, colorMode: 'mono', columns: 116, contrast: 1.42, gamma: .82, edgeStrength: .75, dither: .18, monoColor: '#eaf2ee', backgroundColor: '#020403' } },
+    matrix: { name: 'Matrix Rain', note: 'Green phosphor glow', values: { ...defaults, glyphSet: 'dense', colorMode: 'matrix', columns: 128, contrast: 1.55, gamma: .72, edgeStrength: .9, glow: 7, scanlines: .22, backgroundColor: '#000703' } },
+    amber: { name: 'Amber CRT', note: 'Warm vintage display', values: { ...defaults, colorMode: 'amber', columns: 108, contrast: 1.35, gamma: .86, dither: .32, glow: 5, scanlines: .32, backgroundColor: '#080400' } },
+    blueprint: { name: 'Cyber Cyan', note: 'Cool technical linework', values: { ...defaults, colorMode: 'cyan', glyphSet: 'minimal', columns: 148, edgeStrength: 1.75, edgeThreshold: .2, contrast: 1.15, gamma: .92, dither: .08, glow: 4, backgroundColor: '#01070b' } },
+    poster: { name: 'Posterized ANSI', note: 'Chunky 16-color texture', values: { ...defaults, colorMode: 'ansi', glyphSet: 'blocks', columns: 92, contrast: 1.5, gamma: .75, edgeStrength: .45, dither: .72, paletteSteps: 8, temporal: .66 } },
+    noir: { name: 'Noir Dither', note: 'Graphic black-and-white', values: { ...defaults, colorMode: 'mono', glyphSet: 'dense', columns: 142, contrast: 2.05, gamma: .6, brightness: -.06, edgeStrength: 1.15, dither: 1.05, monoColor: '#ffffff', backgroundColor: '#000000' } },
+    soft: { name: 'Soft Motion', note: 'Stable, low-flicker output', values: { ...defaults, columns: 104, edgeStrength: .38, dither: .08, temporal: .82, glyphHold: .68, renderFps: 18 } }
+  };
+
+  const state = {
+    settings: { ...defaults },
+    glyphBank: [],
+    previousLuma: null,
+    previousGlyphIndices: null,
+    lastFrameTime: 0,
+    animationId: 0,
+    loaded: false,
+    currentAscii: '',
+    currentColors: [],
+    recorder: null,
+    recordedChunks: [],
+    recordingStartedAt: 0,
+    activePreset: 'crisp',
+    objectUrl: null
+  };
+
+  function buildControls(targetId, specs) {
+    const target = $(targetId);
+    specs.forEach(([id, label, min, max, step, value, suffix]) => {
+      const row = document.createElement('label');
+      row.className = 'control-row';
+      row.innerHTML = `<span>${label}</span><input id="${id}" type="range" min="${min}" max="${max}" step="${step}" value="${value}"><output id="${id}Out"></output>`;
+      target.appendChild(row);
+      const input = $(id);
+      input.addEventListener('input', () => {
+        state.settings[id] = Number(input.value);
+        updateOutput(id, suffix);
+        state.activePreset = '';
+        updatePresetSelection();
+        if (['fontSize','charAspect','columns'].includes(id)) resetTemporalState();
+      });
+      input.addEventListener('change', () => {
+        if (['fontSize','fontFamily'].includes(id)) rebuildGlyphBank();
+      });
+      updateOutput(id, suffix);
+    });
+  }
+
+  function updateOutput(id, suffix = '') {
+    const input = $(id);
+    const out = $(id + 'Out');
+    const value = Number(input.value);
+    out.textContent = `${Number.isInteger(value) ? value : value.toFixed(2)}${suffix}`;
+  }
+
+  function buildPresetCards() {
+    const grid = $('presetGrid');
+    grid.innerHTML = '';
+    const all = { ...presets, ...loadCustomPresets() };
+    Object.entries(all).forEach(([key, preset]) => {
+      const button = document.createElement('button');
+      button.className = 'preset-card';
+      button.dataset.preset = key;
+      button.innerHTML = `<span class="preset-name">${escapeHtml(preset.name)}</span><span class="preset-note">${escapeHtml(preset.note || 'Saved custom look')}</span>`;
+      button.addEventListener('click', () => applyPreset(key, preset));
+      grid.appendChild(button);
+    });
+    updatePresetSelection();
+  }
+
+  function loadCustomPresets() {
+    try { return JSON.parse(localStorage.getItem('asciiVideoCustomPresets') || '{}'); }
+    catch { return {}; }
+  }
+
+  function saveCustomPresets(data) {
+    localStorage.setItem('asciiVideoCustomPresets', JSON.stringify(data));
+  }
+
+  function saveCurrentPreset() {
+    const name = $('customPresetName').value.trim();
+    if (!name) return toast('Give the preset a name first.');
+    const custom = loadCustomPresets();
+    const key = `custom-${Date.now()}`;
+    custom[key] = { name, note: 'Custom saved look', values: { ...state.settings } };
+    saveCustomPresets(custom);
+    $('customPresetName').value = '';
+    state.activePreset = key;
+    buildPresetCards();
+    toast(`Saved “${name}”.`);
+  }
+
+  function applyPreset(key, preset) {
+    state.activePreset = key;
+    setSettings(preset.values);
+    updatePresetSelection();
+    toast(`${preset.name} applied.`);
+  }
+
+  function updatePresetSelection() {
+    document.querySelectorAll('.preset-card').forEach((card) => card.classList.toggle('active', card.dataset.preset === state.activePreset));
+  }
+
+  function setSettings(values) {
+    Object.entries({ ...defaults, ...values }).forEach(([key, value]) => {
+      state.settings[key] = value;
+      const el = $(key);
+      if (!el) return;
+      if (el.type === 'checkbox') el.checked = Boolean(value);
+      else el.value = value;
+    });
+    Object.values(controlSpecs).flat().forEach(([id, , , , , , suffix]) => updateOutput(id, suffix));
+    $('customGlyphRow').classList.toggle('is-hidden', state.settings.glyphSet !== 'custom');
+    resetTemporalState();
+    rebuildGlyphBank();
+  }
+
+  function syncSimpleControl(id, transform = (v) => v) {
+    $(id).addEventListener('input', (event) => {
+      state.settings[id] = transform(event.target.type === 'checkbox' ? event.target.checked : event.target.value);
+      state.activePreset = '';
+      updatePresetSelection();
+      if (['glyphSet','customGlyphs','fontFamily'].includes(id)) rebuildGlyphBank();
+      if (id === 'glyphSet') $('customGlyphRow').classList.toggle('is-hidden', event.target.value !== 'custom');
+      if (['glyphSet','customGlyphs','fontFamily','invert'].includes(id)) resetTemporalState();
+    });
+  }
+
+  function activeGlyphString() {
+    const raw = state.settings.glyphSet === 'custom' ? state.settings.customGlyphs : glyphSets[state.settings.glyphSet];
+    return [...new Set(Array.from(raw || ' .:-=+*#%@'))].join('');
+  }
+
+  function rebuildGlyphBank() {
+    const chars = Array.from(activeGlyphString());
+    const fontSize = 48;
+    const fontFamily = state.settings.fontFamily;
+    glyphCanvas.width = 64;
+    glyphCanvas.height = 64;
+    glyphCtx.textAlign = 'center';
+    glyphCtx.textBaseline = 'middle';
+    glyphCtx.font = `${fontSize}px ${fontFamily}`;
+    const bank = chars.map((char) => {
+      glyphCtx.fillStyle = '#000';
+      glyphCtx.fillRect(0, 0, glyphCanvas.width, glyphCanvas.height);
+      glyphCtx.fillStyle = '#fff';
+      glyphCtx.fillText(char, glyphCanvas.width / 2, glyphCanvas.height / 2 + 1);
+      const data = glyphCtx.getImageData(0, 0, glyphCanvas.width, glyphCanvas.height).data;
+      let sum = 0;
+      for (let i = 0; i < data.length; i += 4) sum += data[i] / 255;
+      return { char, density: sum / (glyphCanvas.width * glyphCanvas.height) };
+    }).sort((a, b) => a.density - b.density);
+
+    const min = bank[0]?.density || 0;
+    const max = bank[bank.length - 1]?.density || 1;
+    state.glyphBank = bank.map((g) => ({ ...g, normalized: (g.density - min) / Math.max(.00001, max - min) }));
+  }
+
+  function resetTemporalState() {
+    state.previousLuma = null;
+    state.previousGlyphIndices = null;
+  }
+
+  function handleFile(file) {
+    if (!file || (!file.type.startsWith('video/') && !/\.(mp4|webm|mov|m4v|ogv|avi)$/i.test(file.name))) return toast('Choose a video file.');
+    if (state.objectUrl) URL.revokeObjectURL(state.objectUrl);
+    state.objectUrl = URL.createObjectURL(file);
+    video.src = state.objectUrl;
+    video.load();
+    $('dropZone').classList.add('is-hidden');
+    $('playerArea').classList.remove('is-hidden');
+    state.loaded = true;
+    resetTemporalState();
+    toast(`${file.name} loaded.`);
+  }
+
+  function frameDimensions() {
+    const cols = Math.max(10, Math.round(state.settings.columns));
+    const ratio = video.videoWidth && video.videoHeight ? video.videoHeight / video.videoWidth : 9 / 16;
+    const rows = Math.max(8, Math.round(cols * state.settings.charAspect * ratio));
+    return { cols, rows };
+  }
+
+  function processFrame() {
+    if (!state.loaded || video.readyState < 2 || !video.videoWidth) return;
+    const { cols, rows } = frameDimensions();
+    if (sourceCanvas.width !== cols || sourceCanvas.height !== rows) {
+      sourceCanvas.width = cols;
+      sourceCanvas.height = rows;
+      resetTemporalState();
+    }
+
+    sourceCtx.drawImage(video, 0, 0, cols, rows);
+    const image = sourceCtx.getImageData(0, 0, cols, rows);
+    const px = image.data;
+    const count = cols * rows;
+    const currentLuma = new Float32Array(count);
+    const reds = new Uint8Array(count);
+    const greens = new Uint8Array(count);
+    const blues = new Uint8Array(count);
+
+    const sat = state.settings.saturation;
+    const colorBoost = state.settings.colorBoost;
+    for (let i = 0; i < count; i++) {
+      let r = px[i * 4];
+      let g = px[i * 4 + 1];
+      let b = px[i * 4 + 2];
+      const l = .2126 * r + .7152 * g + .0722 * b;
+      r = clamp(l + (r - l) * sat, 0, 255) * colorBoost;
+      g = clamp(l + (g - l) * sat, 0, 255) * colorBoost;
+      b = clamp(l + (b - l) * sat, 0, 255) * colorBoost;
+      reds[i] = clamp(Math.round(r), 0, 255);
+      greens[i] = clamp(Math.round(g), 0, 255);
+      blues[i] = clamp(Math.round(b), 0, 255);
+      currentLuma[i] = l / 255;
+    }
+
+    const temporal = state.settings.temporal;
+    const luma = new Float32Array(count);
+    if (state.previousLuma && state.previousLuma.length === count) {
+      for (let i = 0; i < count; i++) luma[i] = currentLuma[i] * (1 - temporal) + state.previousLuma[i] * temporal;
+    } else {
+      luma.set(currentLuma);
+    }
+    state.previousLuma = luma.slice();
+
+    const adjusted = new Float32Array(count);
+    for (let i = 0; i < count; i++) {
+      let v = (luma[i] - .5) * state.settings.contrast + .5 + state.settings.brightness;
+      v = Math.pow(clamp(v, 0, 1), Math.max(.05, state.settings.gamma));
+      adjusted[i] = state.settings.invert ? 1 - v : v;
+    }
+
+    const gx = new Float32Array(count);
+    const gy = new Float32Array(count);
+    const edge = new Float32Array(count);
+    for (let y = 1; y < rows - 1; y++) {
+      for (let x = 1; x < cols - 1; x++) {
+        const i = y * cols + x;
+        const tl = adjusted[i - cols - 1], tc = adjusted[i - cols], tr = adjusted[i - cols + 1];
+        const ml = adjusted[i - 1], mr = adjusted[i + 1];
+        const bl = adjusted[i + cols - 1], bc = adjusted[i + cols], br = adjusted[i + cols + 1];
+        gx[i] = -tl - 2 * ml - bl + tr + 2 * mr + br;
+        gy[i] = -tl - 2 * tc - tr + bl + 2 * bc + br;
+        edge[i] = Math.min(1.5, Math.hypot(gx[i], gy[i]));
+      }
+    }
+
+    const working = adjusted.slice();
+    if (state.settings.dither > 0) applyDither(working, cols, rows, state.settings.dither, state.glyphBank.length);
+
+    const glyphIndices = new Int16Array(count);
+    const chars = new Array(count);
+    const colors = new Array(count);
+    const hold = state.settings.glyphHold;
+
+    for (let i = 0; i < count; i++) {
+      const edgeAmount = edge[i];
+      let tone = clamp(working[i] + edgeAmount * .12 * state.settings.edgeStrength, 0, 1);
+      let index = nearestGlyphIndex(tone);
+
+      if (state.settings.directionalEdges && edgeAmount * state.settings.edgeStrength > state.settings.edgeThreshold) {
+        const edgeChar = directionChar(gx[i], gy[i]);
+        const exact = state.glyphBank.findIndex((entry) => entry.char === edgeChar);
+        if (exact >= 0) index = exact;
+        else chars[i] = edgeChar;
+      }
+
+      if (state.previousGlyphIndices && state.previousGlyphIndices.length === count && hold > 0) {
+        const previous = state.previousGlyphIndices[i];
+        const delta = Math.abs(previous - index);
+        const lockRange = Math.max(1, Math.ceil(state.glyphBank.length * hold * .18));
+        if (delta <= lockRange) index = previous;
+        else index = Math.round(index * (1 - hold * .55) + previous * hold * .55);
+      }
+
+      glyphIndices[i] = index;
+      if (!chars[i]) chars[i] = state.glyphBank[index]?.char || ' ';
+      colors[i] = mappedColor(reds[i], greens[i], blues[i], adjusted[i]);
+    }
+    state.previousGlyphIndices = glyphIndices;
+    state.currentAscii = rowsToText(chars, cols, rows);
+    state.currentColors = colors;
+    renderAscii(chars, colors, cols, rows);
+  }
+
+  function applyDither(values, cols, rows, strength, levels) {
+    const denominator = Math.max(1, levels - 1);
+    for (let y = 0; y < rows; y++) {
+      for (let x = 0; x < cols; x++) {
+        const i = y * cols + x;
+        const oldValue = values[i];
+        const newValue = Math.round(oldValue * denominator) / denominator;
+        const error = (oldValue - newValue) * strength;
+        values[i] = newValue;
+        distribute(values, cols, rows, x + 1, y, error * 7 / 16);
+        distribute(values, cols, rows, x - 1, y + 1, error * 3 / 16);
+        distribute(values, cols, rows, x, y + 1, error * 5 / 16);
+        distribute(values, cols, rows, x + 1, y + 1, error * 1 / 16);
+      }
+    }
+  }
+
+  function distribute(values, cols, rows, x, y, value) {
+    if (x < 0 || y < 0 || x >= cols || y >= rows) return;
+    const i = y * cols + x;
+    values[i] = clamp(values[i] + value, 0, 1);
+  }
+
+  function nearestGlyphIndex(value) {
+    let best = 0;
+    let distance = Infinity;
+    for (let i = 0; i < state.glyphBank.length; i++) {
+      const d = Math.abs(state.glyphBank[i].normalized - value);
+      if (d < distance) { distance = d; best = i; }
+    }
+    return best;
+  }
+
+  function directionChar(x, y) {
+    const angle = Math.atan2(y, x);
+    const pi = Math.PI;
+    if (angle > -pi / 8 && angle <= pi / 8) return '|';
+    if (angle > pi / 8 && angle <= 3 * pi / 8) return '/';
+    if (angle > 3 * pi / 8 && angle <= 5 * pi / 8) return '-';
+    if (angle > 5 * pi / 8 && angle <= 7 * pi / 8) return '\\';
+    if (angle <= -7 * pi / 8 || angle > 7 * pi / 8) return '|';
+    if (angle > -7 * pi / 8 && angle <= -5 * pi / 8) return '/';
+    if (angle > -5 * pi / 8 && angle <= -3 * pi / 8) return '-';
+    return '\\';
+  }
+
+  function mappedColor(r, g, b, luminance) {
+    const mode = state.settings.colorMode;
+    if (mode === 'mono') return state.settings.monoColor;
+    if (mode === 'matrix') return rgbToHex(0, 55 + luminance * 200, 45 + luminance * 90);
+    if (mode === 'amber') return rgbToHex(80 + luminance * 175, 28 + luminance * 125, 0);
+    if (mode === 'cyan') return rgbToHex(0, 85 + luminance * 150, 110 + luminance * 145);
+    if (mode === 'ansi') {
+      let best = ansiPalette[0];
+      let dist = Infinity;
+      for (const c of ansiPalette) {
+        const d = (r-c[0])**2 + (g-c[1])**2 + (b-c[2])**2;
+        if (d < dist) { dist = d; best = c; }
+      }
+      return rgbToHex(best[0], best[1], best[2]);
+    }
+    const steps = Math.max(2, state.settings.paletteSteps);
+    const q = (v) => Math.round((v / 255) * (steps - 1)) * 255 / (steps - 1);
+    return rgbToHex(q(r), q(g), q(b));
+  }
+
+  function renderAscii(chars, colors, cols, rows) {
+    const fontSize = Math.round(state.settings.fontSize);
+    const cellHeight = Math.max(7, Math.round(fontSize * 1.05));
+    const cellWidth = Math.max(4, Math.round(cellHeight * state.settings.charAspect));
+    const width = cols * cellWidth;
+    const height = rows * cellHeight;
+    if (canvas.width !== width || canvas.height !== height) {
+      canvas.width = width;
+      canvas.height = height;
+    }
+
+    ctx.save();
+    ctx.fillStyle = state.settings.backgroundColor;
+    ctx.fillRect(0, 0, width, height);
+    ctx.font = `${fontSize}px ${state.settings.fontFamily}`;
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.shadowBlur = state.settings.glow;
+    ctx.shadowColor = colors[Math.floor(colors.length / 2)] || state.settings.monoColor;
+
+    if (state.settings.colorMode === 'mono' && state.settings.glow === 0) {
+      ctx.fillStyle = state.settings.monoColor;
+      ctx.textAlign = 'left';
+      for (let y = 0; y < rows; y++) {
+        const line = chars.slice(y * cols, (y + 1) * cols).join('');
+        ctx.fillText(line, 0, y * cellHeight + cellHeight / 2);
+      }
+    } else {
+      for (let y = 0; y < rows; y++) {
+        for (let x = 0; x < cols; x++) {
+          const i = y * cols + x;
+          ctx.fillStyle = colors[i];
+          ctx.shadowColor = colors[i];
+          ctx.fillText(chars[i], x * cellWidth + cellWidth / 2, y * cellHeight + cellHeight / 2);
+        }
+      }
+    }
+
+    if (state.settings.scanlines > 0) {
+      ctx.shadowBlur = 0;
+      ctx.fillStyle = `rgba(0,0,0,${state.settings.scanlines})`;
+      for (let y = 1; y < height; y += Math.max(2, cellHeight)) ctx.fillRect(0, y, width, 1);
+    }
+    ctx.restore();
+  }
+
+  function rowsToText(chars, cols, rows) {
+    const lines = [];
+    for (let y = 0; y < rows; y++) lines.push(chars.slice(y * cols, (y + 1) * cols).join(''));
+    return lines.join('\n');
+  }
+
+  function loop(now) {
+    const minDelay = 1000 / state.settings.renderFps;
+    if (now - state.lastFrameTime >= minDelay) {
+      processFrame();
+      state.lastFrameTime = now;
+    }
+    updateTransport();
+    state.animationId = requestAnimationFrame(loop);
+  }
+
+  function updateTransport() {
+    if (!Number.isFinite(video.duration)) return;
+    $('timeline').value = video.duration ? Math.round((video.currentTime / video.duration) * 1000) : 0;
+    $('currentTime').textContent = formatTime(video.currentTime);
+    $('duration').textContent = formatTime(video.duration);
+    $('playPause').textContent = video.paused ? '▶' : '❚❚';
+  }
+
+  function autoTune() {
+    if (!state.loaded || video.readyState < 2) return toast('Load a video first.');
+    const sampleW = 64;
+    const sampleH = Math.max(24, Math.round(sampleW * video.videoHeight / video.videoWidth));
+    sourceCanvas.width = sampleW; sourceCanvas.height = sampleH;
+    sourceCtx.drawImage(video, 0, 0, sampleW, sampleH);
+    const data = sourceCtx.getImageData(0, 0, sampleW, sampleH).data;
+    let sum = 0, sumSq = 0, edge = 0;
+    const lumas = new Float32Array(sampleW * sampleH);
+    for (let i = 0; i < lumas.length; i++) {
+      const l = (.2126 * data[i*4] + .7152 * data[i*4+1] + .0722 * data[i*4+2]) / 255;
+      lumas[i] = l; sum += l; sumSq += l*l;
+    }
+    for (let y = 1; y < sampleH; y++) for (let x = 1; x < sampleW; x++) {
+      const i = y * sampleW + x;
+      edge += Math.abs(lumas[i] - lumas[i-1]) + Math.abs(lumas[i] - lumas[i-sampleW]);
+    }
+    const mean = sum / lumas.length;
+    const variance = Math.max(0, sumSq / lumas.length - mean*mean);
+    const avgEdge = edge / lumas.length;
+    setSettings({
+      ...state.settings,
+      columns: clamp(Math.round(96 + avgEdge * 190), 84, 168),
+      contrast: clamp(1.08 + (0.08 - variance) * 3.2, .9, 1.8),
+      brightness: clamp(.45 - mean, -.15, .15),
+      gamma: clamp(.88 + (mean - .5) * .35, .68, 1.08),
+      edgeStrength: clamp(.58 + avgEdge * 5, .55, 1.6),
+      edgeThreshold: clamp(.36 - avgEdge * .8, .16, .34),
+      dither: clamp(.08 + (0.09 - variance) * 1.6, .05, .48),
+      temporal: .58,
+      glyphHold: .3
+    });
+    state.activePreset = '';
+    updatePresetSelection();
+    toast('Auto-tuned for the current frame.');
+  }
+
+  function downloadBlob(blob, filename) {
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url; a.download = filename; a.click();
+    setTimeout(() => URL.revokeObjectURL(url), 1200);
+  }
+
+  function exportPng() {
+    if (!state.loaded) return toast('Load a video first.');
+    canvas.toBlob((blob) => blob && downloadBlob(blob, 'ascii-frame.png'), 'image/png');
+  }
+
+  function exportText() {
+    if (!state.currentAscii) return toast('Render a frame first.');
+    downloadBlob(new Blob([state.currentAscii], { type: 'text/plain;charset=utf-8' }), 'ascii-frame.txt');
+  }
+
+  function exportHtml() {
+    if (!state.currentAscii) return toast('Render a frame first.');
+    const { cols, rows } = frameDimensions();
+    const lines = [];
+    for (let y = 0; y < rows; y++) {
+      let line = '';
+      for (let x = 0; x < cols; x++) {
+        const i = y * cols + x;
+        const char = state.currentAscii.split('\n')[y]?.[x] || ' ';
+        line += `<span style="color:${state.currentColors[i] || state.settings.monoColor}">${escapeHtml(char)}</span>`;
+      }
+      lines.push(line);
+    }
+    const html = `<!doctype html><meta charset="utf-8"><title>ASCII frame</title><style>html,body{margin:0;background:${state.settings.backgroundColor};}pre{margin:0;padding:20px;font:${state.settings.fontSize}px/${Math.round(state.settings.fontSize*1.05)}px ${state.settings.fontFamily};letter-spacing:0;white-space:pre;}</style><pre>${lines.join('\n')}</pre>`;
+    downloadBlob(new Blob([html], { type: 'text/html;charset=utf-8' }), 'ascii-frame.html');
+  }
+
+  function toggleRecording() {
+    if (state.recorder && state.recorder.state === 'recording') {
+      state.recorder.stop();
+      return;
+    }
+    if (!state.loaded) return toast('Load a video first.');
+    if (!canvas.captureStream || !window.MediaRecorder) return toast('WebM recording is not supported in this browser.');
+    const stream = canvas.captureStream(state.settings.renderFps);
+    try {
+      const videoStream = video.captureStream?.();
+      const audioTrack = videoStream?.getAudioTracks?.()[0];
+      if (audioTrack) stream.addTrack(audioTrack);
+    } catch {}
+    const candidates = ['video/webm;codecs=vp9,opus','video/webm;codecs=vp8,opus','video/webm'];
+    const mimeType = candidates.find((type) => MediaRecorder.isTypeSupported(type)) || '';
+    state.recordedChunks = [];
+    state.recorder = new MediaRecorder(stream, mimeType ? { mimeType, videoBitsPerSecond: 8_000_000 } : undefined);
+    state.recorder.ondataavailable = (event) => { if (event.data.size) state.recordedChunks.push(event.data); };
+    state.recorder.onstop = () => {
+      downloadBlob(new Blob(state.recordedChunks, { type: state.recorder.mimeType || 'video/webm' }), 'ascii-video.webm');
+      $('recordButton').classList.remove('recording');
+      $('recordButton').textContent = 'Record WebM';
+      $('recordStatus').textContent = '';
+      toast('WebM export ready.');
+    };
+    state.recorder.start(500);
+    state.recordingStartedAt = performance.now();
+    $('recordButton').classList.add('recording');
+    $('recordButton').textContent = 'Stop recording';
+    if (video.paused) video.play().catch(() => {});
+    const tick = () => {
+      if (!state.recorder || state.recorder.state !== 'recording') return;
+      $('recordStatus').textContent = `REC ${formatTime((performance.now() - state.recordingStartedAt)/1000)}`;
+      requestAnimationFrame(tick);
+    };
+    tick();
+  }
+
+  function formatTime(seconds) {
+    if (!Number.isFinite(seconds)) return '00:00';
+    const s = Math.max(0, Math.floor(seconds));
+    const m = Math.floor(s / 60);
+    return `${String(m).padStart(2,'0')}:${String(s % 60).padStart(2,'0')}`;
+  }
+
+  function clamp(value, min, max) { return Math.max(min, Math.min(max, value)); }
+  function componentToHex(value) { return clamp(Math.round(value),0,255).toString(16).padStart(2,'0'); }
+  function rgbToHex(r,g,b) { return `#${componentToHex(r)}${componentToHex(g)}${componentToHex(b)}`; }
+  function escapeHtml(value) { return String(value).replace(/[&<>'"]/g, (ch) => ({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[ch])); }
+  let toastTimer;
+  function toast(message) {
+    const el = $('toast'); el.textContent = message; el.classList.add('show');
+    clearTimeout(toastTimer); toastTimer = setTimeout(() => el.classList.remove('show'), 1800);
+  }
+
+  buildControls('mappingControls', controlSpecs.mapping);
+  buildControls('imageControls', controlSpecs.image);
+  buildControls('motionControls', controlSpecs.motion);
+  buildPresetCards();
+  ['glyphSet','customGlyphs','fontFamily','directionalEdges','invert','colorMode','backgroundColor','monoColor','resetOnSeek'].forEach((id) => syncSimpleControl(id, (v) => v));
+  rebuildGlyphBank();
+
+  $('loadButton').addEventListener('click', () => $('fileInput').click());
+  $('dropLoadButton').addEventListener('click', () => $('fileInput').click());
+  $('fileInput').addEventListener('change', (event) => handleFile(event.target.files[0]));
+  $('dropZone').addEventListener('dragover', (event) => { event.preventDefault(); $('dropZone').classList.add('dragging'); });
+  $('dropZone').addEventListener('dragleave', () => $('dropZone').classList.remove('dragging'));
+  $('dropZone').addEventListener('drop', (event) => { event.preventDefault(); $('dropZone').classList.remove('dragging'); handleFile(event.dataTransfer.files[0]); });
+
+  $('playPause').addEventListener('click', () => video.paused ? video.play() : video.pause());
+  $('restartButton').addEventListener('click', () => { video.currentTime = 0; resetTemporalState(); });
+  $('timeline').addEventListener('input', (event) => {
+    if (!Number.isFinite(video.duration)) return;
+    video.currentTime = (Number(event.target.value) / 1000) * video.duration;
+  });
+  video.addEventListener('seeked', () => { if (state.settings.resetOnSeek) resetTemporalState(); processFrame(); });
+  video.addEventListener('loadedmetadata', () => { updateTransport(); processFrame(); });
+  video.addEventListener('ended', () => { if (state.recorder?.state === 'recording') state.recorder.stop(); });
+  $('showOriginal').addEventListener('change', (event) => $('visualGrid').classList.toggle('original-hidden', !event.target.checked));
+
+  $('pngButton').addEventListener('click', exportPng);
+  $('txtButton').addEventListener('click', exportText);
+  $('htmlButton').addEventListener('click', exportHtml);
+  $('recordButton').addEventListener('click', toggleRecording);
+  $('resetButton').addEventListener('click', () => { state.activePreset = 'crisp'; setSettings(presets.crisp.values); updatePresetSelection(); toast('Controls reset.'); });
+  $('autoTuneButton').addEventListener('click', autoTune);
+  $('savePresetButton').addEventListener('click', saveCurrentPreset);
+
+  window.addEventListener('keydown', (event) => {
+    if (event.target.matches('input,select')) return;
+    if (event.code === 'Space') { event.preventDefault(); video.paused ? video.play() : video.pause(); }
+    if (event.key.toLowerCase() === 'r') { video.currentTime = 0; resetTemporalState(); }
+  });
+
+  setSettings(presets.crisp.values);
+  state.animationId = requestAnimationFrame(loop);
+})();
+
+</script>
+</body>
 </html>
