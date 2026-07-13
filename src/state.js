@@ -49,6 +49,7 @@ Object.assign(defaults, {
 });
 
 export const presets = {
+  default: { name: 'Default', note: 'Loads on start', values: { ...defaults, columns: 156, fontSize: 7, charAspect: .78, contrast: .6, gamma: .73, brightness: .03, edgeStrength: 1.15, edgeThreshold: .05, dither: 1.5, directionalEdges: false, invert: false, colorMode: 'source', saturation: 1.72, colorBoost: 1.66, paletteSteps: 32, scanlines: 0, glow: 4, temporal: 0, glyphHold: 0, renderFps: 20, resetOnSeek: false } },
   crisp: { name: 'Crisp Detail', note: 'Clean edges, balanced color', values: { ...defaults, columns: 130, edgeStrength: 1.05, edgeThreshold: .24, dither: .12, temporal: .58, glyphHold: .28 } },
   terminal: { name: 'Classic Terminal', note: 'High-contrast monochrome', values: { ...defaults, colorMode: 'mono', columns: 116, contrast: 1.42, gamma: .82, edgeStrength: .75, dither: .18, monoColor: '#eaf2ee', backgroundColor: '#020403' } },
   matrix: { name: 'Matrix Rain', note: 'Green phosphor glow', values: { ...defaults, glyphSet: 'dense', colorMode: 'matrix', columns: 128, contrast: 1.55, gamma: .72, edgeStrength: .9, glow: 7, scanlines: .22, backgroundColor: '#000703' } },
@@ -71,6 +72,6 @@ export const state = {
   currentColors: [],
   exporting: false,
   exportCancel: false,
-  activePreset: 'crisp',
+  activePreset: 'default',
   objectUrl: null
 };

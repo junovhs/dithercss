@@ -51,7 +51,7 @@ $('txtButton').addEventListener('click', exportText);
 $('htmlButton').addEventListener('click', exportHtml);
 $('mp4Button').addEventListener('click', () => runExport('mp4', 'MP4'));
 $('webmButton').addEventListener('click', () => runExport('webm', 'WebM'));
-$('resetButton').addEventListener('click', () => { state.activePreset = 'crisp'; setSettings(presets.crisp.values); updatePresetSelection(); toast('Controls reset.'); });
+$('resetButton').addEventListener('click', () => { state.activePreset = 'default'; setSettings(presets.default.values); updatePresetSelection(); toast('Controls reset.'); });
 $('autoTuneButton').addEventListener('click', autoTune);
 $('savePresetButton').addEventListener('click', saveCurrentPreset);
 
@@ -80,5 +80,5 @@ window.addEventListener('keydown', (event) => {
   if (event.key.toLowerCase() === 'r') { video.currentTime = 0; resetTemporalState(); }
 });
 
-setSettings(presets.crisp.values);
+setSettings(presets.default.values);
 state.animationId = requestAnimationFrame(loop);
