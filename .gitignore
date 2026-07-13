@@ -1,0 +1,10 @@
+# Ishoo store (sidecar-ref backed; never tracked on main)
+.ishoo/
+**/.ishoo/*.local.toml
+**/.ishoo/cache/
+**/.ishoo/worktrees/
+
+# Node / Vite
+node_modules/
+dist/
+*.log
