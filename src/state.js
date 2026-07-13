@@ -1,12 +1,25 @@
 // Static configuration data (glyph sets, palettes, control specs, presets) plus
 // the single mutable `state` object shared across the engine and UI.
 
+// Ink density is measured per glyph at render time and the set is auto-sorted
+// light→dark, so the *order* here is irrelevant — what matters is an even spread
+// from empty to solid. Sets are written light→dark only for readability.
 export const glyphSets = {
   classic: ' .,:;irsXA253hMHGS#9B&@',
   dense: '  .`^",:;Il!i~+_-?][}{1)(|\\/tfjrxnuvczXYUJCLQ0OZmwqpdbkhao*#MW&8%B@$',
+  minimal: ' .-:=+*#%@',
   blocks: ' ░▒▓█',
   braille: ' ⠁⠂⠄⡀⢀⠈⠐⠠⠃⠅⠉⠘⠰⠿⣿',
-  minimal: ' .-:=+*#%@'
+  dots: ' .·•◦○◍●◉█',
+  circles: ' ·∘○◌◍◉●',
+  digits: ' 1234567890',
+  code: ' .:;=!*68#@',
+  math: ' .-+=×÷≠≡█',
+  geometric: ' ·▫▪◆■█',
+  stars: ' ·✦★✶✷',
+  hearts: ' ·♡♥❤',
+  currency: ' .$£€¥#',
+  retro: ' .:oO@#█'
 };
 
 export const ansiPalette = [

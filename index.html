@@ -103,9 +103,19 @@
             <select id="glyphSet">
               <option value="classic">Classic ASCII</option>
               <option value="dense">Dense ASCII</option>
+              <option value="minimal">Minimal</option>
               <option value="blocks">Unicode blocks</option>
               <option value="braille">Braille texture</option>
-              <option value="minimal">Minimal</option>
+              <option value="dots">Dots</option>
+              <option value="circles">Circles</option>
+              <option value="digits">Digits</option>
+              <option value="code">Code symbols</option>
+              <option value="math">Math</option>
+              <option value="geometric">Geometric</option>
+              <option value="stars">Stars</option>
+              <option value="hearts">Hearts</option>
+              <option value="currency">Currency</option>
+              <option value="retro">Retro</option>
               <option value="custom">Custom</option>
             </select>
           </label>
@@ -113,6 +123,7 @@
             <span>Characters</span>
             <input id="customGlyphs" type="text" value=" .:-=+*#%@" />
           </label>
+          <p class="control-hint">Characters are auto-sorted by ink density — order doesn't matter. A good set ramps evenly from empty to solid.</p>
           <label class="control-row select-row">
             <span>Font</span>
             <select id="fontFamily">
