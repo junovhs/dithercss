@@ -5,6 +5,53 @@ import { state, glyphSets, ansiPalette } from './state.js';
 import { video, canvas, ctx, sourceCanvas, sourceCtx, glyphCanvas, glyphCtx } from './dom.js';
 import { clamp, rgbToHex } from './util.js';
 
+// Reused offscreen glyph layer for the glow path (allocated lazily).
+let layerCanvas = null, layerCtx = null;
+
+// Memoise rgb→'#rrggbb'. With quantised palettes the same few colours recur across
+// thousands of cells, so this turns most per-cell string builds into a Map hit.
+const hexMemo = new Map();
+function hexOf(r, g, b) {
+  r = clamp(Math.round(r), 0, 255); g = clamp(Math.round(g), 0, 255); b = clamp(Math.round(b), 0, 255);
+  const key = (r << 16) | (g << 8) | b;
+  let s = hexMemo.get(key);
+  if (s === undefined) { s = rgbToHex(r, g, b); if (hexMemo.size < 100000) hexMemo.set(key, s); }
+  return s;
+}
+
+// Draw the coloured glyphs onto `g`, batched by colour so fillStyle (a relatively
+// expensive parse) changes a few hundred times per frame instead of once per cell.
+// Glyphs are drawn in their own colour, so edges/overflow are coloured correctly.
+function drawGlyphs(g, chars, colors, cols, rows, cellWidth, cellHeight, fontSize, fontFamily) {
+  g.font = `${fontSize}px ${fontFamily}`;
+  g.textAlign = 'center';
+  g.textBaseline = 'middle';
+  const byColor = new Map();
+  for (let i = 0, n = cols * rows; i < n; i++) {
+    const ch = chars[i];
+    if (!ch || ch === ' ') continue;
+    let group = byColor.get(colors[i]);
+    if (!group) { group = []; byColor.set(colors[i], group); }
+    group.push(i);
+  }
+  for (const [color, group] of byColor) {
+    g.fillStyle = color;
+    for (let k = 0; k < group.length; k++) {
+      const i = group[k];
+      const x = i % cols, y = (i / cols) | 0;
+      g.fillText(chars[i], x * cellWidth + cellWidth / 2, y * cellHeight + cellHeight / 2);
+    }
+  }
+}
+
+function drawScanlines(width, height, cellHeight) {
+  if (state.settings.scanlines > 0) {
+    ctx.shadowBlur = 0;
+    ctx.fillStyle = `rgba(0,0,0,${state.settings.scanlines})`;
+    for (let y = 1; y < height; y += Math.max(2, cellHeight)) ctx.fillRect(0, y, width, 1);
+  }
+}
+
 export function activeGlyphString() {
   const raw = state.settings.glyphSet === 'custom' ? state.settings.customGlyphs : glyphSets[state.settings.glyphSet];
   return [...new Set(Array.from(raw || ' .:-=+*#%@'))].join('');
@@ -33,6 +80,21 @@ export function rebuildGlyphBank() {
   const min = bank[0]?.density || 0;
   const max = bank[bank.length - 1]?.density || 1;
   state.glyphBank = bank.map((g) => ({ ...g, normalized: (g.density - min) / Math.max(.00001, max - min) }));
+
+  // Precompute a 256-entry tone→glyph LUT so processFrame does an O(1) lookup per
+  // cell instead of scanning the whole bank per pixel.
+  const lut = new Int16Array(256);
+  const gb = state.glyphBank;
+  for (let t = 0; t < 256; t++) {
+    const v = t / 255;
+    let best = 0, dist = Infinity;
+    for (let i = 0; i < gb.length; i++) {
+      const d = Math.abs(gb[i].normalized - v);
+      if (d < dist) { dist = d; best = i; }
+    }
+    lut[t] = best;
+  }
+  state.glyphLUT = lut;
 }
 
 export function resetTemporalState() {
@@ -106,9 +168,10 @@ export function processFrame() {
       const tl = adjusted[i - cols - 1], tc = adjusted[i - cols], tr = adjusted[i - cols + 1];
       const ml = adjusted[i - 1], mr = adjusted[i + 1];
       const bl = adjusted[i + cols - 1], bc = adjusted[i + cols], br = adjusted[i + cols + 1];
-      gx[i] = -tl - 2 * ml - bl + tr + 2 * mr + br;
-      gy[i] = -tl - 2 * tc - tr + bl + 2 * bc + br;
-      edge[i] = Math.min(1.5, Math.hypot(gx[i], gy[i]));
+      const ex = -tl - 2 * ml - bl + tr + 2 * mr + br;
+      const ey = -tl - 2 * tc - tr + bl + 2 * bc + br;
+      gx[i] = ex; gy[i] = ey;
+      edge[i] = Math.min(1.5, Math.sqrt(ex * ex + ey * ey));
     }
   }
 
@@ -123,7 +186,7 @@ export function processFrame() {
   for (let i = 0; i < count; i++) {
     const edgeAmount = edge[i];
     let tone = clamp(working[i] + edgeAmount * .12 * state.settings.edgeStrength, 0, 1);
-    let index = nearestGlyphIndex(tone);
+    let index = state.glyphLUT ? state.glyphLUT[(tone * 255) | 0] : 0;
 
     if (state.settings.directionalEdges && edgeAmount * state.settings.edgeStrength > state.settings.edgeThreshold) {
       const edgeChar = directionChar(gx[i], gy[i]);
@@ -173,16 +236,6 @@ function distribute(values, cols, rows, x, y, value) {
   values[i] = clamp(values[i] + value, 0, 1);
 }
 
-function nearestGlyphIndex(value) {
-  let best = 0;
-  let distance = Infinity;
-  for (let i = 0; i < state.glyphBank.length; i++) {
-    const d = Math.abs(state.glyphBank[i].normalized - value);
-    if (d < distance) { distance = d; best = i; }
-  }
-  return best;
-}
-
 function directionChar(x, y) {
   const angle = Math.atan2(y, x);
   const pi = Math.PI;
@@ -199,9 +252,9 @@ function directionChar(x, y) {
 function mappedColor(r, g, b, luminance) {
   const mode = state.settings.colorMode;
   if (mode === 'mono') return state.settings.monoColor;
-  if (mode === 'matrix') return rgbToHex(0, 55 + luminance * 200, 45 + luminance * 90);
-  if (mode === 'amber') return rgbToHex(80 + luminance * 175, 28 + luminance * 125, 0);
-  if (mode === 'cyan') return rgbToHex(0, 85 + luminance * 150, 110 + luminance * 145);
+  if (mode === 'matrix') return hexOf(0, 55 + luminance * 200, 45 + luminance * 90);
+  if (mode === 'amber') return hexOf(80 + luminance * 175, 28 + luminance * 125, 0);
+  if (mode === 'cyan') return hexOf(0, 85 + luminance * 150, 110 + luminance * 145);
   if (mode === 'ansi') {
     let best = ansiPalette[0];
     let dist = Infinity;
@@ -209,11 +262,11 @@ function mappedColor(r, g, b, luminance) {
       const d = (r - c[0]) ** 2 + (g - c[1]) ** 2 + (b - c[2]) ** 2;
       if (d < dist) { dist = d; best = c; }
     }
-    return rgbToHex(best[0], best[1], best[2]);
+    return hexOf(best[0], best[1], best[2]);
   }
   const steps = Math.max(2, state.settings.paletteSteps);
   const q = (v) => Math.round((v / 255) * (steps - 1)) * 255 / (steps - 1);
-  return rgbToHex(q(r), q(g), q(b));
+  return hexOf(q(r), q(g), q(b));
 }
 
 export function renderAscii(chars, colors, cols, rows) {
@@ -226,39 +279,51 @@ export function renderAscii(chars, colors, cols, rows) {
     canvas.width = width;
     canvas.height = height;
   }
+  const fontFamily = state.settings.fontFamily;
+  const glow = state.settings.glow;
 
-  ctx.save();
-  ctx.fillStyle = state.settings.backgroundColor;
-  ctx.fillRect(0, 0, width, height);
-  ctx.font = `${fontSize}px ${state.settings.fontFamily}`;
-  ctx.textAlign = 'center';
-  ctx.textBaseline = 'middle';
-  ctx.shadowBlur = state.settings.glow;
-  ctx.shadowColor = colors[Math.floor(colors.length / 2)] || state.settings.monoColor;
-
-  if (state.settings.colorMode === 'mono' && state.settings.glow === 0) {
-    ctx.fillStyle = state.settings.monoColor;
+  // Fast mono path: row-batched, no glow — unchanged.
+  if (state.settings.colorMode === 'mono' && glow === 0) {
+    ctx.save();
+    ctx.fillStyle = state.settings.backgroundColor;
+    ctx.fillRect(0, 0, width, height);
+    ctx.font = `${fontSize}px ${fontFamily}`;
     ctx.textAlign = 'left';
+    ctx.textBaseline = 'middle';
+    ctx.fillStyle = state.settings.monoColor;
     for (let y = 0; y < rows; y++) {
       const line = chars.slice(y * cols, (y + 1) * cols).join('');
       ctx.fillText(line, 0, y * cellHeight + cellHeight / 2);
     }
-  } else {
-    for (let y = 0; y < rows; y++) {
-      for (let x = 0; x < cols; x++) {
-        const i = y * cols + x;
-        ctx.fillStyle = colors[i];
-        ctx.shadowColor = colors[i];
-        ctx.fillText(chars[i], x * cellWidth + cellWidth / 2, y * cellHeight + cellHeight / 2);
-      }
-    }
+    drawScanlines(width, height, cellHeight);
+    ctx.restore();
+    return;
   }
 
-  if (state.settings.scanlines > 0) {
-    ctx.shadowBlur = 0;
-    ctx.fillStyle = `rgba(0,0,0,${state.settings.scanlines})`;
-    for (let y = 1; y < height; y += Math.max(2, cellHeight)) ctx.fillRect(0, y, width, 1);
+  // Colored path. Glyphs are drawn in their own colour (batched), with no per-glyph
+  // shadow. Glow, when on, is a single blurred pass of the whole glyph layer instead
+  // of an expensive shadowBlur per cell.
+  ctx.save();
+  ctx.fillStyle = state.settings.backgroundColor;
+  ctx.fillRect(0, 0, width, height);
+
+  if (glow > 0) {
+    if (!layerCanvas) { layerCanvas = document.createElement('canvas'); layerCtx = layerCanvas.getContext('2d'); }
+    if (layerCanvas.width !== width || layerCanvas.height !== height) { layerCanvas.width = width; layerCanvas.height = height; }
+    layerCtx.setTransform(1, 0, 0, 1, 0, 0);
+    layerCtx.clearRect(0, 0, width, height);
+    drawGlyphs(layerCtx, chars, colors, cols, rows, cellWidth, cellHeight, fontSize, fontFamily);
+    // One blurred pass of the whole glyph layer (a soft coloured bloom) then the
+    // sharp glyphs on top — replaces the old per-glyph shadowBlur (much cheaper).
+    ctx.filter = `blur(${glow * 0.6}px)`;
+    ctx.drawImage(layerCanvas, 0, 0);
+    ctx.filter = 'none';
+    ctx.drawImage(layerCanvas, 0, 0);
+  } else {
+    drawGlyphs(ctx, chars, colors, cols, rows, cellWidth, cellHeight, fontSize, fontFamily);
   }
+
+  drawScanlines(width, height, cellHeight);
   ctx.restore();
 }
 
