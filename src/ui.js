@@ -3,7 +3,7 @@
 
 import { state, controlSpecs, defaults, presets } from './state.js';
 import { $, video, sourceCanvas, sourceCtx } from './dom.js';
-import { clamp, toast, escapeHtml, formatTime } from './util.js';
+import { clamp, toast, escapeHtml, formatTime, downloadBlob } from './util.js';
 import { resetTemporalState, rebuildGlyphBank, processFrame, frameDimensions } from './engine.js';
 
 const SIZE_IDS = ['outputWidth', 'cellW', 'cellH'];
@@ -77,6 +77,42 @@ export function saveCurrentPreset() {
   state.activePreset = key;
   buildPresetCards();
   toast(`Saved “${name}”.`);
+}
+
+// Download the user's saved custom presets as a JSON file (built-ins aren't
+// exported — they always exist).
+export function exportPresets() {
+  const custom = loadCustomPresets();
+  if (!Object.keys(custom).length) return toast('No saved presets to export.');
+  const json = JSON.stringify({ type: 'dithercss-presets', version: 1, presets: custom }, null, 2);
+  downloadBlob(new Blob([json], { type: 'application/json' }), 'dithercss-presets.json');
+  toast('Presets exported.');
+}
+
+// Merge presets from an imported JSON file into the saved custom presets.
+export function importPresets(file) {
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = () => {
+    let data;
+    try { data = JSON.parse(String(reader.result)); }
+    catch { return toast('That file is not valid JSON.'); }
+    // Accept either our wrapper ({presets:{…}}) or a bare map of presets.
+    const incoming = data && data.presets && typeof data.presets === 'object' ? data.presets : data;
+    if (!incoming || typeof incoming !== 'object') return toast('No presets found in that file.');
+    const custom = loadCustomPresets();
+    let added = 0;
+    for (const [key, preset] of Object.entries(incoming)) {
+      if (!preset || typeof preset !== 'object' || typeof preset.values !== 'object') continue;
+      custom[key] = { name: String(preset.name || key), note: preset.note || 'Imported preset', values: preset.values };
+      added++;
+    }
+    if (!added) return toast('No valid presets in that file.');
+    saveCustomPresets(custom);
+    buildPresetCards();
+    toast(`Imported ${added} preset${added === 1 ? '' : 's'}.`);
+  };
+  reader.readAsText(file);
 }
 
 export function applyPreset(key, preset) {

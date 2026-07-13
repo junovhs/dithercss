@@ -6,7 +6,8 @@ import { toast } from './util.js';
 import { processFrame, resetTemporalState, rebuildGlyphBank } from './engine.js';
 import {
   buildControls, buildPresetCards, syncSimpleControl, setSettings,
-  updatePresetSelection, saveCurrentPreset, autoTune, handleFile, updateTransport, updateSizeReadout
+  updatePresetSelection, saveCurrentPreset, autoTune, handleFile, updateTransport, updateSizeReadout,
+  exportPresets, importPresets
 } from './ui.js';
 import { exportPng, exportText, exportHtml } from './export.js';
 import { exportVideo, isExportSupported } from './encoder.js';
@@ -55,6 +56,9 @@ $('webmButton').addEventListener('click', () => runExport('webm', 'WebM'));
 $('resetButton').addEventListener('click', () => { state.activePreset = 'default'; setSettings(presets.default.values); updatePresetSelection(); toast('Controls reset.'); });
 $('autoTuneButton').addEventListener('click', autoTune);
 $('savePresetButton').addEventListener('click', saveCurrentPreset);
+$('exportPresetsButton').addEventListener('click', exportPresets);
+$('importPresetsButton').addEventListener('click', () => $('importPresetsInput').click());
+$('importPresetsInput').addEventListener('change', (event) => { importPresets(event.target.files[0]); event.target.value = ''; });
 
 // Clip export: while running, the clicked button becomes Cancel and the other is
 // disabled; progress shows in the status line.
