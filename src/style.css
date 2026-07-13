@@ -50,7 +50,13 @@ h2 { margin: 2px 0 0; font-size: 16px; letter-spacing: -.01em; }
   border: 1px solid var(--line); background: rgba(13,17,24,.88); border-radius: var(--radius);
   box-shadow: var(--shadow); backdrop-filter: blur(16px);
 }
-.stage-card { min-height: calc(100vh - 118px); overflow: hidden; }
+.stage-card { min-height: calc(100vh - 118px); overflow: hidden; position: relative; }
+.drag-overlay {
+  position: absolute; inset: 0; z-index: 6; display: grid; place-content: center; justify-items: center; gap: 12px;
+  background: rgba(7,9,13,.82); border: 2px dashed var(--accent); border-radius: var(--radius);
+  color: var(--accent); font-weight: 800; font-size: 16px; letter-spacing: .04em;
+  backdrop-filter: blur(3px); pointer-events: none;
+}
 .control-panel { max-height: calc(100vh - 118px); overflow: auto; scrollbar-width: thin; }
 
 .drop-zone {

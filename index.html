@@ -22,7 +22,11 @@
     </header>
 
     <main class="workspace">
-      <section class="stage-card">
+      <section class="stage-card" id="stageCard">
+        <div id="dragOverlay" class="drag-overlay is-hidden">
+          <div class="drop-icon">▶</div>
+          <span>Drop a video to replace</span>
+        </div>
         <div id="dropZone" class="drop-zone">
           <div class="drop-icon">▶</div>
           <h2>Drop a video clip here</h2>

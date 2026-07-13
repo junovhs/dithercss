@@ -33,9 +33,32 @@ rebuildGlyphBank();
 $('loadButton').addEventListener('click', () => $('fileInput').click());
 $('dropLoadButton').addEventListener('click', () => $('fileInput').click());
 $('fileInput').addEventListener('change', (event) => handleFile(event.target.files[0]));
-$('dropZone').addEventListener('dragover', (event) => { event.preventDefault(); $('dropZone').classList.add('dragging'); });
-$('dropZone').addEventListener('dragleave', () => $('dropZone').classList.remove('dragging'));
-$('dropZone').addEventListener('drop', (event) => { event.preventDefault(); $('dropZone').classList.remove('dragging'); handleFile(event.dataTransfer.files[0]); });
+
+// Drag-and-drop a video anywhere over the stage — in the empty state or with a
+// clip already loaded — to load/replace it. A depth counter keeps the overlay
+// stable while the cursor moves between child elements (canvas, video, panes).
+const stage = $('stageCard');
+const overlay = $('dragOverlay');
+let dragDepth = 0;
+const hasFiles = (event) => Array.from(event.dataTransfer?.types || []).includes('Files');
+stage.addEventListener('dragenter', (event) => {
+  if (!hasFiles(event)) return;
+  event.preventDefault(); dragDepth++; overlay.classList.remove('is-hidden');
+});
+stage.addEventListener('dragover', (event) => {
+  if (!hasFiles(event)) return;
+  event.preventDefault(); event.dataTransfer.dropEffect = 'copy';
+});
+stage.addEventListener('dragleave', (event) => {
+  if (!hasFiles(event)) return;
+  dragDepth = Math.max(0, dragDepth - 1);
+  if (dragDepth === 0) overlay.classList.add('is-hidden');
+});
+stage.addEventListener('drop', (event) => {
+  event.preventDefault(); dragDepth = 0; overlay.classList.add('is-hidden');
+  const file = event.dataTransfer.files[0];
+  if (file) handleFile(file);
+});
 
 $('playPause').addEventListener('click', () => video.paused ? video.play() : video.pause());
 $('restartButton').addEventListener('click', () => { video.currentTime = 0; resetTemporalState(); });
