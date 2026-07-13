@@ -39,6 +39,20 @@ $('dropZone').addEventListener('drop', (event) => { event.preventDefault(); $('d
 
 $('playPause').addEventListener('click', () => video.paused ? video.play() : video.pause());
 $('restartButton').addEventListener('click', () => { video.currentTime = 0; resetTemporalState(); });
+
+// Loop defaults on; mute defaults off. Both toggle the source video element.
+video.loop = true;
+$('loopButton').addEventListener('click', () => {
+  video.loop = !video.loop;
+  $('loopButton').classList.toggle('active', video.loop);
+  $('loopButton').setAttribute('aria-pressed', String(video.loop));
+});
+$('muteButton').addEventListener('click', () => {
+  video.muted = !video.muted;
+  $('muteButton').textContent = video.muted ? '🔇' : '🔊';
+  $('muteButton').classList.toggle('active', video.muted);
+  $('muteButton').setAttribute('aria-pressed', String(video.muted));
+});
 $('timeline').addEventListener('input', (event) => {
   if (!Number.isFinite(video.duration)) return;
   video.currentTime = (Number(event.target.value) / 1000) * video.duration;
