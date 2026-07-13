@@ -6,7 +6,7 @@ import { toast } from './util.js';
 import { processFrame, resetTemporalState, rebuildGlyphBank } from './engine.js';
 import {
   buildControls, buildPresetCards, syncSimpleControl, setSettings,
-  updatePresetSelection, saveCurrentPreset, autoTune, handleFile, updateTransport
+  updatePresetSelection, saveCurrentPreset, autoTune, handleFile, updateTransport, updateSizeReadout
 } from './ui.js';
 import { exportPng, exportText, exportHtml } from './export.js';
 import { exportVideo, isExportSupported } from './encoder.js';
@@ -21,6 +21,7 @@ function loop(now) {
   state.animationId = requestAnimationFrame(loop);
 }
 
+buildControls('sizeControls', controlSpecs.size);
 buildControls('mappingControls', controlSpecs.mapping);
 buildControls('imageControls', controlSpecs.image);
 buildControls('motionControls', controlSpecs.motion);
@@ -43,7 +44,7 @@ $('timeline').addEventListener('input', (event) => {
 });
 // The export loop drives its own seeking/rendering, so skip the live handler then.
 video.addEventListener('seeked', () => { if (state.exporting) return; if (state.settings.resetOnSeek) resetTemporalState(); processFrame(); });
-video.addEventListener('loadedmetadata', () => { updateTransport(); processFrame(); });
+video.addEventListener('loadedmetadata', () => { updateTransport(); updateSizeReadout(); processFrame(); });
 $('showOriginal').addEventListener('change', (event) => $('visualGrid').classList.toggle('original-hidden', !event.target.checked));
 
 $('pngButton').addEventListener('click', exportPng);

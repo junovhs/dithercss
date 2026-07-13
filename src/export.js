@@ -4,7 +4,7 @@
 import { state } from './state.js';
 import { canvas } from './dom.js';
 import { toast, downloadBlob, escapeHtml } from './util.js';
-import { frameDimensions } from './engine.js';
+import { glyphMetrics } from './engine.js';
 
 export function exportPng() {
   if (!state.loaded) return toast('Load a video first.');
@@ -18,7 +18,7 @@ export function exportText() {
 
 export function exportHtml() {
   if (!state.currentAscii) return toast('Render a frame first.');
-  const { cols, rows } = frameDimensions();
+  const { cols, rows, fontSize, cellHeight } = glyphMetrics();
   const lines = [];
   for (let y = 0; y < rows; y++) {
     let line = '';
@@ -29,6 +29,6 @@ export function exportHtml() {
     }
     lines.push(line);
   }
-  const html = `<!doctype html><meta charset="utf-8"><title>ASCII frame</title><style>html,body{margin:0;background:${state.settings.backgroundColor};}pre{margin:0;padding:20px;font:${state.settings.fontSize}px/${Math.round(state.settings.fontSize * 1.05)}px ${state.settings.fontFamily};letter-spacing:0;white-space:pre;}</style><pre>${lines.join('\n')}</pre>`;
+  const html = `<!doctype html><meta charset="utf-8"><title>ASCII frame</title><style>html,body{margin:0;background:${state.settings.backgroundColor};}pre{margin:0;padding:20px;font:${fontSize.toFixed(1)}px/${cellHeight.toFixed(1)}px ${state.settings.fontFamily};letter-spacing:0;white-space:pre;}</style><pre>${lines.join('\n')}</pre>`;
   downloadBlob(new Blob([html], { type: 'text/html;charset=utf-8' }), 'ascii-frame.html');
 }

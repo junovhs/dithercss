@@ -4,7 +4,9 @@
 import { state, controlSpecs, defaults, presets } from './state.js';
 import { $, video, sourceCanvas, sourceCtx } from './dom.js';
 import { clamp, toast, escapeHtml, formatTime } from './util.js';
-import { resetTemporalState, rebuildGlyphBank, processFrame } from './engine.js';
+import { resetTemporalState, rebuildGlyphBank, processFrame, frameDimensions } from './engine.js';
+
+const SIZE_IDS = ['outputWidth', 'cellW', 'cellH'];
 
 export function buildControls(targetId, specs) {
   const target = $(targetId);
@@ -19,13 +21,18 @@ export function buildControls(targetId, specs) {
       updateOutput(id, suffix);
       state.activePreset = '';
       updatePresetSelection();
-      if (['fontSize', 'charAspect', 'columns'].includes(id)) resetTemporalState();
-    });
-    input.addEventListener('change', () => {
-      if (['fontSize', 'fontFamily'].includes(id)) rebuildGlyphBank();
+      if (SIZE_IDS.includes(id)) { resetTemporalState(); updateSizeReadout(); }
     });
     updateOutput(id, suffix);
   });
+}
+
+// Live "512 × 288 px · 170 cols × 40 rows" readout for the Size section.
+export function updateSizeReadout() {
+  const el = $('sizeReadout');
+  if (!el) return;
+  const { cols, rows, outW, outH } = frameDimensions();
+  el.textContent = `${outW} × ${outH} px · ${cols} cols × ${rows} rows`;
 }
 
 export function updateOutput(id, suffix = '') {
@@ -95,6 +102,7 @@ export function setSettings(values) {
   $('customGlyphRow').classList.toggle('is-hidden', state.settings.glyphSet !== 'custom');
   resetTemporalState();
   rebuildGlyphBank();
+  updateSizeReadout();
 }
 
 export function syncSimpleControl(id, transform = (v) => v) {
@@ -149,9 +157,11 @@ export function autoTune() {
   const mean = sum / lumas.length;
   const variance = Math.max(0, sumSq / lumas.length - mean * mean);
   const avgEdge = edge / lumas.length;
+  // More edge detail → smaller column cells (more columns) at the current width.
+  const targetCols = clamp(Math.round(96 + avgEdge * 190), 84, 168);
   setSettings({
     ...state.settings,
-    columns: clamp(Math.round(96 + avgEdge * 190), 84, 168),
+    cellW: clamp(state.settings.outputWidth / targetCols, 2, 24),
     contrast: clamp(1.08 + (0.08 - variance) * 3.2, .9, 1.8),
     brightness: clamp(.45 - mean, -.15, .15),
     gamma: clamp(.88 + (mean - .5) * .35, .68, 1.08),

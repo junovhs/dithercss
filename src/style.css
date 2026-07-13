@@ -143,6 +143,8 @@ h2 { margin: 2px 0 0; font-size: 16px; letter-spacing: -.01em; }
 .toast.show { opacity: 1; transform: translate(-50%, 0); }
 .is-hidden { display: none !important; }
 
+.size-readout { margin-top: 10px; color: var(--accent); font: 11px ui-monospace, SFMono-Regular, Menlo, monospace; letter-spacing: .02em; }
+
 @media (max-width: 1050px) {
   .workspace { grid-template-columns: 1fr; }
   .control-panel { max-height: none; }

@@ -16,10 +16,13 @@ export const ansiPalette = [
 
 // [id, label, min, max, step, default, suffix]
 export const controlSpecs = {
+  size: [
+    ['outputWidth', 'Output width', 128, 2048, 8, 512, 'px'],
+    ['cellW', 'Column size', 2, 24, 0.5, 3.5, 'px'],
+    ['cellH', 'Row size', 3, 40, 0.5, 7, 'px'],
+    ['glyphScale', 'Glyph size', 0.5, 1.2, 0.01, 1, '×']
+  ],
   mapping: [
-    ['columns', 'Columns', 40, 240, 1, 112, ''],
-    ['fontSize', 'Render size', 7, 22, 1, 11, 'px'],
-    ['charAspect', 'Cell aspect', 0.38, 0.78, 0.01, 0.58, ''],
     ['contrast', 'Contrast', 0.3, 2.5, 0.01, 1.15, '×'],
     ['gamma', 'Gamma', 0.35, 2.6, 0.01, 0.95, ''],
     ['brightness', 'Brightness', -0.5, 0.5, 0.01, 0, ''],
@@ -49,15 +52,15 @@ Object.assign(defaults, {
 });
 
 export const presets = {
-  default: { name: 'Default', note: 'Loads on start', values: { ...defaults, columns: 156, fontSize: 7, charAspect: .78, contrast: .6, gamma: .73, brightness: .03, edgeStrength: 1.15, edgeThreshold: .05, dither: 1.5, directionalEdges: false, invert: false, colorMode: 'source', saturation: 1.72, colorBoost: 1.66, paletteSteps: 32, scanlines: 0, glow: 4, temporal: 0, glyphHold: 0, renderFps: 20, resetOnSeek: false } },
-  crisp: { name: 'Crisp Detail', note: 'Clean edges, balanced color', values: { ...defaults, columns: 130, edgeStrength: 1.05, edgeThreshold: .24, dither: .12, temporal: .58, glyphHold: .28 } },
-  terminal: { name: 'Classic Terminal', note: 'High-contrast monochrome', values: { ...defaults, colorMode: 'mono', columns: 116, contrast: 1.42, gamma: .82, edgeStrength: .75, dither: .18, monoColor: '#eaf2ee', backgroundColor: '#020403' } },
-  matrix: { name: 'Matrix Rain', note: 'Green phosphor glow', values: { ...defaults, glyphSet: 'dense', colorMode: 'matrix', columns: 128, contrast: 1.55, gamma: .72, edgeStrength: .9, glow: 7, scanlines: .22, backgroundColor: '#000703' } },
-  amber: { name: 'Amber CRT', note: 'Warm vintage display', values: { ...defaults, colorMode: 'amber', columns: 108, contrast: 1.35, gamma: .86, dither: .32, glow: 5, scanlines: .32, backgroundColor: '#080400' } },
-  blueprint: { name: 'Cyber Cyan', note: 'Cool technical linework', values: { ...defaults, colorMode: 'cyan', glyphSet: 'minimal', columns: 148, edgeStrength: 1.75, edgeThreshold: .2, contrast: 1.15, gamma: .92, dither: .08, glow: 4, backgroundColor: '#01070b' } },
-  poster: { name: 'Posterized ANSI', note: 'Chunky 16-color texture', values: { ...defaults, colorMode: 'ansi', glyphSet: 'blocks', columns: 92, contrast: 1.5, gamma: .75, edgeStrength: .45, dither: .72, paletteSteps: 8, temporal: .66 } },
-  noir: { name: 'Noir Dither', note: 'Graphic black-and-white', values: { ...defaults, colorMode: 'mono', glyphSet: 'dense', columns: 142, contrast: 2.05, gamma: .6, brightness: -.06, edgeStrength: 1.15, dither: 1.05, monoColor: '#ffffff', backgroundColor: '#000000' } },
-  soft: { name: 'Soft Motion', note: 'Stable, low-flicker output', values: { ...defaults, columns: 104, edgeStrength: .38, dither: .08, temporal: .82, glyphHold: .68, renderFps: 18 } }
+  default: { name: 'Default', note: 'Loads on start', values: { ...defaults, outputWidth: 512, cellW: 3.5, cellH: 7, glyphScale: 1, contrast: .6, gamma: .73, brightness: .03, edgeStrength: 1.15, edgeThreshold: .05, dither: 0, directionalEdges: false, invert: false, colorMode: 'source', saturation: 1.72, colorBoost: 1.66, paletteSteps: 8, scanlines: 0, glow: 4, temporal: 0, glyphHold: 0, renderFps: 20, resetOnSeek: false } },
+  crisp: { name: 'Crisp Detail', note: 'Clean edges, balanced color', values: { ...defaults, outputWidth: 640, cellW: 5, cellH: 8.5, edgeStrength: 1.05, edgeThreshold: .24, dither: .12, temporal: .58, glyphHold: .28 } },
+  terminal: { name: 'Classic Terminal', note: 'High-contrast monochrome', values: { ...defaults, outputWidth: 640, cellW: 5.5, cellH: 9.5, colorMode: 'mono', contrast: 1.42, gamma: .82, edgeStrength: .75, dither: .18, monoColor: '#eaf2ee', backgroundColor: '#020403' } },
+  matrix: { name: 'Matrix Rain', note: 'Green phosphor glow', values: { ...defaults, outputWidth: 640, cellW: 5, cellH: 8.5, glyphSet: 'dense', colorMode: 'matrix', contrast: 1.55, gamma: .72, edgeStrength: .9, glow: 7, scanlines: .22, backgroundColor: '#000703' } },
+  amber: { name: 'Amber CRT', note: 'Warm vintage display', values: { ...defaults, outputWidth: 640, cellW: 6, cellH: 10.5, colorMode: 'amber', contrast: 1.35, gamma: .86, dither: .32, glow: 5, scanlines: .32, backgroundColor: '#080400' } },
+  blueprint: { name: 'Cyber Cyan', note: 'Cool technical linework', values: { ...defaults, outputWidth: 640, cellW: 4.5, cellH: 7.5, colorMode: 'cyan', glyphSet: 'minimal', edgeStrength: 1.75, edgeThreshold: .2, contrast: 1.15, gamma: .92, dither: .08, glow: 4, backgroundColor: '#01070b' } },
+  poster: { name: 'Posterized ANSI', note: 'Chunky 16-color texture', values: { ...defaults, outputWidth: 640, cellW: 7, cellH: 12, colorMode: 'ansi', glyphSet: 'blocks', contrast: 1.5, gamma: .75, edgeStrength: .45, dither: .72, paletteSteps: 8, temporal: .66 } },
+  noir: { name: 'Noir Dither', note: 'Graphic black-and-white', values: { ...defaults, outputWidth: 640, cellW: 4.5, cellH: 7.5, colorMode: 'mono', glyphSet: 'dense', contrast: 2.05, gamma: .6, brightness: -.06, edgeStrength: 1.15, dither: 1.05, monoColor: '#ffffff', backgroundColor: '#000000' } },
+  soft: { name: 'Soft Motion', note: 'Stable, low-flicker output', values: { ...defaults, outputWidth: 640, cellW: 6, cellH: 10.5, edgeStrength: .38, dither: .08, temporal: .82, glyphHold: .68, renderFps: 18 } }
 };
 
 export const state = {

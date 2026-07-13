@@ -102,11 +102,28 @@ export function resetTemporalState() {
   state.previousGlyphIndices = null;
 }
 
+// The output is exactly `outputWidth` px wide; height follows the source aspect.
+// The character grid is derived from the requested per-cell pixel sizes, so the
+// user thinks in "pixels per column/row" and columns/rows fall out.
 export function frameDimensions() {
-  const cols = Math.max(10, Math.round(state.settings.columns));
+  const s = state.settings;
+  const outW = Math.max(16, Math.round(s.outputWidth));
   const ratio = video.videoWidth && video.videoHeight ? video.videoHeight / video.videoWidth : 9 / 16;
-  const rows = Math.max(8, Math.round(cols * state.settings.charAspect * ratio));
-  return { cols, rows };
+  const outH = Math.max(16, Math.round(outW * ratio));
+  const cols = Math.max(2, Math.round(outW / Math.max(1, s.cellW)));
+  const rows = Math.max(2, Math.round(outH / Math.max(1, s.cellH)));
+  return { cols, rows, outW, outH };
+}
+
+// Exact render metrics: cells fill the output canvas precisely, and the glyph is
+// auto-sized to fit its cell (0.6 ≈ monospace advance/height) so it always reads
+// crisply at the chosen size, scaled by the glyphScale fine-tune.
+export function glyphMetrics() {
+  const { cols, rows, outW, outH } = frameDimensions();
+  const cellWidth = outW / cols;
+  const cellHeight = outH / rows;
+  const fontSize = Math.max(4, Math.min(cellHeight, cellWidth / 0.6) * state.settings.glyphScale);
+  return { cols, rows, outW, outH, cellWidth, cellHeight, fontSize };
 }
 
 export function processFrame() {
@@ -270,11 +287,9 @@ function mappedColor(r, g, b, luminance) {
 }
 
 export function renderAscii(chars, colors, cols, rows) {
-  const fontSize = Math.round(state.settings.fontSize);
-  const cellHeight = Math.max(7, Math.round(fontSize * 1.05));
-  const cellWidth = Math.max(4, Math.round(cellHeight * state.settings.charAspect));
-  const width = cols * cellWidth;
-  const height = rows * cellHeight;
+  const { outW, outH, cellWidth, cellHeight, fontSize } = glyphMetrics();
+  const width = outW;
+  const height = outH;
   if (canvas.width !== width || canvas.height !== height) {
     canvas.width = width;
     canvas.height = height;
