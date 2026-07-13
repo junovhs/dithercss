@@ -14,6 +14,12 @@ import { processFrame, resetTemporalState } from './engine.js';
 const H264_CANDIDATES = ['avc1.640034', 'avc1.640028', 'avc1.4d0028', 'avc1.42e01e'];
 const VP9_CANDIDATES = ['vp09.00.31.08', 'vp09.00.10.08'];
 
+// Constant-quantizer targets (CRF-like; lower = higher quality). Tuned for line
+// art: near-transparent glyph edges while the flat background costs almost
+// nothing, so files stay small. H.264 QP is 0..51, VP9 QP is 0..63.
+const H264_QUANTIZER = 21;
+const VP9_QUANTIZER = 31;
+
 export function isExportSupported() {
   return typeof VideoEncoder !== 'undefined' && typeof VideoFrame !== 'undefined';
 }
@@ -26,6 +32,26 @@ async function pickCodec(candidates, config) {
     } catch { /* try next */ }
   }
   return null;
+}
+
+// Rate control: prefer constant-quantizer (CRF-like) — the only WebCodecs mode
+// that prioritises quality over an average bitrate, and by far the best
+// quality-per-byte for sharp line art. Where the platform encoder lacks it (some
+// software H.264 encoders), fall back to a high variable bitrate so edges stay
+// crisp (larger files, but not mushy). Returns the configure() config plus the
+// per-frame quantizer to pass to encode() (null in the bitrate fallback).
+async function buildRateControl(codec, width, height, fps) {
+  const isAvc = codec.startsWith('avc1');
+  const quantizer = isAvc ? H264_QUANTIZER : VP9_QUANTIZER;
+  const cqp = { codec, width, height, framerate: fps, bitrateMode: 'quantizer', latencyMode: 'quality' };
+  try {
+    if ((await VideoEncoder.isConfigSupported(cqp)).supported) return { config: cqp, quantizer };
+  } catch { /* fall through to bitrate mode */ }
+  const bitrate = Math.min(40_000_000, Math.max(4_000_000, Math.round(width * height * fps * 0.6)));
+  return {
+    config: { codec, width, height, framerate: fps, bitrate, bitrateMode: 'variable', latencyMode: 'quality' },
+    quantizer: null
+  };
 }
 
 // Seek the source video and resolve once the frame at (or nearest) `t` is ready.
@@ -75,12 +101,11 @@ export async function exportVideo(format, onProgress) {
     encCanvas.height = height;
     const encCtx = encCanvas.getContext('2d', { alpha: false });
 
-    const bitrate = Math.min(25_000_000, Math.max(2_000_000, Math.round(width * height * fps * 0.25)));
-    const baseConfig = { width, height, bitrate, framerate: fps };
+    const probeConfig = { width, height, framerate: fps, bitrate: 5_000_000 };
 
-    let muxer, filename, mime;
+    let muxer, filename, mime, codec;
     if (format === 'mp4') {
-      const codec = await pickCodec(H264_CANDIDATES, baseConfig);
+      codec = await pickCodec(H264_CANDIDATES, probeConfig);
       if (!codec) throw new Error('No H.264 encoder available in this browser.');
       muxer = new Mp4Muxer({
         target: new Mp4Target(),
@@ -89,10 +114,8 @@ export async function exportVideo(format, onProgress) {
       });
       filename = 'ascii-video.mp4';
       mime = 'video/mp4';
-      baseConfig.codec = codec;
-      baseConfig.avc = { format: 'avc' };
     } else {
-      const codec = await pickCodec(VP9_CANDIDATES, baseConfig);
+      codec = await pickCodec(VP9_CANDIDATES, probeConfig);
       if (!codec) throw new Error('No VP9 encoder available in this browser.');
       muxer = new WebmMuxer({
         target: new WebmTarget(),
@@ -100,15 +123,17 @@ export async function exportVideo(format, onProgress) {
       });
       filename = 'ascii-video.webm';
       mime = 'video/webm';
-      baseConfig.codec = codec;
     }
+
+    const { config, quantizer } = await buildRateControl(codec, width, height, fps);
+    if (format === 'mp4') config.avc = { format: 'avc' };
 
     let encodeError = null;
     encoder = new VideoEncoder({
       output: (chunk, meta) => muxer.addVideoChunk(chunk, meta),
       error: (e) => { encodeError = e; }
     });
-    encoder.configure({ ...baseConfig, latencyMode: 'quality' });
+    encoder.configure(config);
 
     const totalFrames = Math.max(1, Math.floor(duration * fps));
     const frameDurUs = Math.round(1_000_000 / fps);
@@ -125,7 +150,12 @@ export async function exportVideo(format, onProgress) {
       encCtx.drawImage(canvas, 0, 0);
 
       const frame = new VideoFrame(encCanvas, { timestamp: i * frameDurUs, duration: frameDurUs });
-      encoder.encode(frame, { keyFrame: i % keyEvery === 0 });
+      const encodeOpts = { keyFrame: i % keyEvery === 0 };
+      if (quantizer != null) {
+        if (format === 'mp4') encodeOpts.avc = { quantizer };
+        else encodeOpts.vp9 = { quantizer };
+      }
+      encoder.encode(frame, encodeOpts);
       frame.close();
 
       // Backpressure: don't outrun the encoder's queue.
